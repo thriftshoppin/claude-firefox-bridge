@@ -1,12 +1,15 @@
 {
   "name": "firefox-mcp-connect",
-  "owner": { "name": "thriftshoppin", "url": "https://github.com/thriftshoppin" },
-  "description": "Firefox MCP Connect: let Claude use your own Firefox. Unofficial community project.",
+  "owner": {
+    "name": "thriftshoppin",
+    "url": "https://github.com/thriftshoppin"
+  },
+  "description": "Unofficial, community-built with Claude (Claude Code + Cowork): lets Claude control your own Firefox.",
   "plugins": [
     {
       "name": "firefox-mcp-connect",
       "source": "./",
-      "description": "Let Claude use your own Firefox: tabs, pages, screenshots, clicks and typing, with your existing sign-ins. Needs the Claude MCP Connect Firefox add-on."
+      "description": "Unofficial, community-built with Claude (Claude Code + Cowork): lets Claude control your own Firefox. Tabs, pages, screenshots, clicks and typing, with your existing sign-ins. Needs the Claude MCP Connect Firefox add-on."
     }
   ]
 }

@@ -9,7 +9,7 @@ Claude MCP Connect
 claude-mcp-connect
 
 ## Summary (250 characters max)
-Let Claude, the AI assistant, use this browser through a local, code-protected connection: open and read pages, take screenshots, click and type. Unofficial; not affiliated with Anthropic or Mozilla.
+Unofficial, community-built with Claude (Claude Code + Cowork): lets Claude control your own Firefox. Open and read pages, take screenshots, click and type over a local, code-protected connection. Not affiliated with Anthropic or Mozilla.
 
 ## Description
 Claude MCP Connect connects Firefox to Claude, so Claude can work in the browser you already use, with your own sign-ins.

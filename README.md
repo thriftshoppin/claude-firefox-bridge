@@ -1,6 +1,6 @@
 # Firefox MCP Connect: let Claude use your Firefox
 
-Firefox MCP Connect lets Claude work in the Firefox you already use, with your own sign-ins, cookies, VPN and ad blocker. Claude can list and switch tabs, open pages, read them, take screenshots, click, type, press keys and scroll. You stay in control: there's an on/off switch, a log of every action, and password and payment fields are off limits.
+Unofficial, community-built with Claude (Claude Code + Cowork): lets Claude control your own Firefox. Firefox MCP Connect works in the Firefox you already use, with your own sign-ins, cookies, VPN and ad blocker. Claude can list and switch tabs, open pages, read them, take screenshots, click, type, press keys and scroll. You stay in control: there's an on/off switch, a log of every action, and password and payment fields are off limits.
 
 It has two parts that talk to each other only on your computer:
 
@@ -103,6 +103,12 @@ Neither part collects anything or sends anything to its authors or any third par
 | `amo/` | Notes for Mozilla's add-on reviewers |
 
 `test/e2e.mjs` runs a live check in a throwaway Firefox profile with `web-ext run`. `test/ffcall.mjs` makes one tool call through a running bridge from a terminal.
+
+## How this was built
+
+Claude designed and wrote this project: the add-on, the bridge, the plugin, the tests and these docs. It worked through Claude Code in VS Code and Claude Cowork, at the direction of [thriftshoppin](https://github.com/thriftshoppin). It follows Anthropic's directory policy for plugins: every tool has annotations, page content is treated as untrusted, typing into password, payment and one-time-code fields is blocked, and all data stays on your computer.
+
+Being built with Claude doesn't make this an Anthropic product. It isn't affiliated with, made by, reviewed by or endorsed by Anthropic or Mozilla.
 
 ## License
 

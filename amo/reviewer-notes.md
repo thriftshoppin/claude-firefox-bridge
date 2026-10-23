@@ -5,6 +5,7 @@ Claude MCP Connect is a bridge between Firefox and a local program, the MCP Conn
 ## Source
 All code is plain, unminified JavaScript. There's no build step: the files in the submitted package are the source.
 Public repository: https://github.com/thriftshoppin/claude-firefox-bridge (folder `extension/`).
+This add-on and its bridge were written by Claude, Anthropic's AI assistant (through Claude Code and Cowork), at the direction of the developer, thriftshoppin. It isn't an Anthropic product, and Anthropic hasn't reviewed or endorsed it.
 
 ## How to test
 1. Install Node.js 18 or newer.

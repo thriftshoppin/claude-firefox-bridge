@@ -2,12 +2,21 @@
   "name": "firefox-mcp-connect",
   "displayName": "Firefox MCP Connect",
   "version": "1.0.3",
-  "description": "Let Claude use your own Firefox: list and switch tabs, open pages, read them, take screenshots, click, type and scroll, with your existing sign-ins. Needs the free Claude MCP Connect Firefox add-on. Unofficial community project.",
-  "author": { "name": "thriftshoppin", "url": "https://github.com/thriftshoppin" },
+  "description": "Unofficial, community-built with Claude (Claude Code + Cowork): lets Claude control your own Firefox. List and switch tabs, open pages, read them, take screenshots, click, type and scroll, with your existing sign-ins. Needs the free Claude MCP Connect Firefox add-on. Not affiliated with or endorsed by Anthropic or Mozilla.",
+  "author": {
+    "name": "thriftshoppin",
+    "url": "https://github.com/thriftshoppin"
+  },
   "homepage": "https://github.com/thriftshoppin/claude-firefox-bridge",
   "repository": "https://github.com/thriftshoppin/claude-firefox-bridge",
   "license": "MIT",
-  "keywords": ["firefox", "browser", "tabs", "web", "automation"],
+  "keywords": [
+    "firefox",
+    "browser",
+    "tabs",
+    "web",
+    "automation"
+  ],
   "icon": "./assets/icon.png",
   "documentationUrl": "https://github.com/thriftshoppin/claude-firefox-bridge#readme",
   "supportUrl": "https://github.com/thriftshoppin/claude-firefox-bridge/issues",
@@ -32,7 +41,9 @@
   "mcpServers": {
     "firefox": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/server/bridge.js"],
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/server/bridge.js"
+      ],
       "env": {
         "FF_BRIDGE_TOKEN": "${user_config.connection_code}",
         "FF_BRIDGE_PORT": "${user_config.port}"
