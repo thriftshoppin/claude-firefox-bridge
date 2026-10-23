@@ -3,6 +3,9 @@
 Lets Claude drive your real Firefox through MCP: tabs, navigation, screenshots, reading pages, clicking, typing, keys and scrolling. It keeps your own sign-ins, VPN and ad blocker.
 It works from the Claude desktop app (chat, Cowork and Code) and from Claude Code.
 
+> An independent community project. Not affiliated with, endorsed by, or supported by Anthropic or Mozilla.
+> "Claude" is a trademark of Anthropic, and "Firefox" is a trademark of the Mozilla Foundation. They're used here only to say what this works with.
+
 ```
 Claude app / Claude Code --stdio--> bridge/bridge.js (MCP server "firefox")
                                          |  WebSocket on 127.0.0.1:8765, token auth
