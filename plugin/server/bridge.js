@@ -435,7 +435,7 @@ const TOOLS = [
   {
     name: "tab_open", title: "Open tab",
     description: "Open a new tab at a URL, make it the active tab, and wait up to 15 s for it to load. Returns the new tabId.",
-    inputSchema: obj({ url: { type: "string", description: "Absolute URL, including https://" } }, ["url"]),
+    inputSchema: obj({ url: { type: "string", description: "The full web address (URL) to open" } }, ["url"]),
     annotations: hints(false, false, true),
   },
   {
@@ -453,7 +453,7 @@ const TOOLS = [
   {
     name: "navigate", title: "Navigate",
     description: "Load a URL in a tab, or go 'back' or 'forward' in its history, and wait up to 15 s for the page to load.",
-    inputSchema: obj({ url: { type: "string", description: "Absolute URL, or 'back' or 'forward'." }, tabId: tabIdProp }, ["url"]),
+    inputSchema: obj({ url: { type: "string", description: "The full web address (URL) to load, or 'back' or 'forward'." }, tabId: tabIdProp }, ["url"]),
     annotations: hints(false, true, true),
   },
   {
