@@ -47,4 +47,4 @@ Changes to this policy are published here and in the project's GitHub repository
 
 ## Contact
 
-Questions or concerns: open an issue at <https://github.com/thriftshoppin/claude-firefox-bridge/issues>, or email TODO-CONTACT-EMAIL.
+Questions or concerns: open an issue at <https://github.com/thriftshoppin/claude-firefox-bridge/issues>, or email cherrybuster369@gmail.com.

@@ -39,7 +39,7 @@ automation, ai, tabs, productivity
 
 ## Support
 - Support site: https://github.com/thriftshoppin/claude-firefox-bridge/issues
-- Support email: TODO-CONTACT-EMAIL
+- Support email: cherrybuster369@gmail.com
 - Homepage: https://github.com/thriftshoppin/claude-firefox-bridge
 
 ## Privacy policy
