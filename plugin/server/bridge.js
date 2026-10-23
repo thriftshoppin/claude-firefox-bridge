@@ -5,12 +5,15 @@
 // - stdout carries only MCP JSON-RPC messages. All logging goes to stderr.
 // - Listens on 127.0.0.1 only. The add-on must send the shared connection code first, and only
 //   connections from a Firefox add-on (Origin moz-extension://...) or another copy of this bridge are accepted.
-// - Nothing is sent anywhere except between Claude and the local add-on. Nothing is written to disk.
+// - Nothing is sent anywhere except between Claude and the local add-on. The only file it writes is the connection
+//   code the user pastes into the chat (connect_firefox), saved in Claude's plugin data folder (CLAUDE_PLUGIN_DATA).
 "use strict";
 
 const http = require("node:http");
 const net = require("node:net");
 const crypto = require("node:crypto");
+const fs = require("node:fs");
+const path = require("node:path");
 const { EventEmitter } = require("node:events");
 
 const VERSION = "1.0.3";
@@ -22,19 +25,45 @@ const PORT = (() => {
   const p = parseInt(process.env.FF_BRIDGE_PORT || "8765", 10);
   return p >= 1 && p <= 65535 ? p : 8765;
 })();
-const TOKEN = (() => {
+// The connection code comes from the plugin's settings (FF_BRIDGE_TOKEN) when the app collects them. Surfaces that
+// can't collect plugin settings (such as Cowork) leave it empty; the user then pastes the code into the chat and
+// Claude calls connect_firefox, which saves it in the plugin's data folder for next time.
+const DATA_DIR = (process.env.CLAUDE_PLUGIN_DATA || "").trim();
+const CODE_FILE = DATA_DIR && !DATA_DIR.startsWith("${") ? path.join(DATA_DIR, "connection-code") : "";
+const CODE_PATTERN = /^[A-Za-z0-9_-]{16,256}$/;
+let TOKEN = (() => {
   const t = (process.env.FF_BRIDGE_TOKEN || "").trim();
-  return t.startsWith("${") ? "" : t; // an unfilled ${user_config...} placeholder counts as no code
+  if (t && !t.startsWith("${")) return t; // an unfilled ${user_config...} placeholder counts as no code
+  try {
+    const saved = CODE_FILE ? fs.readFileSync(CODE_FILE, "utf8").trim() : "";
+    return CODE_PATTERN.test(saved) ? saved : "";
+  } catch {
+    return "";
+  }
 })();
 const CALL_TIMEOUT_MS = 30_000;
 const NOT_CONNECTED =
   "Firefox isn't connected. Check that Firefox is open, the Claude MCP Connect add-on's toolbar badge is on, " +
-  "and the connection code in Claude matches the one in the add-on (toolbar icon > Copy connection code).";
+  "and the connection code in Claude matches the one in the add-on (toolbar icon > Copy connection code). " +
+  "If the user pastes a new code, call connect_firefox with it.";
 const NO_CODE =
-  "No connection code is set. In Firefox, click the Claude MCP Connect toolbar icon, click 'Copy connection code', " +
-  "and paste it into this plugin's settings in Claude.";
+  "No connection code is set yet. Ask the user to click the Claude MCP Connect icon in Firefox's toolbar, click " +
+  "'Copy connection code', and paste it here; then call connect_firefox with it. (In Claude Code they can also put it " +
+  "in this plugin's settings.)";
 
-if (!TOKEN) log("No connection code configured; all connections will be refused.");
+if (!TOKEN) log("No connection code yet; waiting for one from the plugin settings or connect_firefox.");
+
+function saveCode(code) {
+  if (!CODE_FILE) return false;
+  try {
+    fs.mkdirSync(path.dirname(CODE_FILE), { recursive: true });
+    fs.writeFileSync(CODE_FILE, `${code}\n`, { mode: 0o600 });
+    return true;
+  } catch (e) {
+    log(`Couldn't save the connection code: ${e.message}`);
+    return false;
+  }
+}
 
 // =====================================================================================
 // Minimal WebSocket (RFC 6455): text frames, fragmentation, ping/pong, close. Server and client.
@@ -428,6 +457,12 @@ const hints = (readOnly, destructive, openWorld, idempotent = false) => ({
 
 const TOOLS = [
   {
+    name: "connect_firefox", title: "Connect to Firefox",
+    description: "Save the connection code the user pasted from Firefox (Claude MCP Connect toolbar icon > 'Copy connection code') and connect to their browser. Use it when another tool says no connection code is set or Firefox isn't connected and the user gives you a code. The code is saved in this plugin's data folder, so it's needed only once.",
+    inputSchema: obj({ code: { type: "string", description: "The connection code exactly as the user pasted it." } }, ["code"]),
+    annotations: hints(false, false, false, true),
+  },
+  {
     name: "tabs_list", title: "List tabs",
     description: "List the open Firefox tabs: tabId, title, URL, whether each is active, and windowId.",
     inputSchema: obj({}), annotations: hints(true, false, false, true),
@@ -561,6 +596,50 @@ function checkArgs(tool, args) {
   return "";
 }
 
+async function connectFirefox(rawCode) {
+  const code = String(rawCode).trim();
+  if (!CODE_PATTERN.test(code)) {
+    return errorResult(
+      "That doesn't look like a connection code. In Firefox, click the Claude MCP Connect toolbar icon, click " +
+        "'Copy connection code', and paste the whole code. It's a long string of letters and numbers.",
+    );
+  }
+  if (code !== TOKEN) {
+    TOKEN = code;
+    // Anything connected with the old code has to authenticate again.
+    if (ext) {
+      const old = ext;
+      ext = null;
+      failPending(old, "The connection code changed.");
+      try { old.close(4003); } catch {}
+    }
+    if (upstream) {
+      try { upstream.close(1000); } catch {} // the relay rejoins the primary with the new code
+    }
+  }
+  const saved = saveCode(code);
+  if (!server && !upstream) scheduleRetry(0);
+  const started = Date.now();
+  let lastError = "";
+  while (Date.now() - started < 12000) {
+    try {
+      const tabs = await forward("tabs_list", {});
+      return textResult(
+        `Connected to Firefox (${Array.isArray(tabs) ? tabs.length : "some"} tabs open). ` +
+          (saved ? "The code is saved, so it won't be needed again." : "The code is kept for this session only."),
+      );
+    } catch (e) {
+      lastError = e.message;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+  return errorResult(
+    `The code is ${saved ? "saved" : "set for this session"}, but Firefox hasn't connected yet. Check that Firefox is open, ` +
+      "the Claude MCP Connect toolbar icon shows ON (open its popup and tick 'Bridge enabled'), and that the code is " +
+      `the one from its 'Copy connection code' button. Then try any Firefox tool again. (${lastError})`,
+  );
+}
+
 const textResult = (t) => ({ content: [{ type: "text", text: typeof t === "string" ? t : JSON.stringify(t, null, 2) }] });
 const errorResult = (msg) => ({ content: [{ type: "text", text: `Error: ${msg}` }], isError: true });
 
@@ -574,6 +653,7 @@ async function callTool(name, args = {}) {
       await new Promise((r) => setTimeout(r, args.seconds * 1000));
       return textResult(`Waited ${args.seconds} s.`);
     }
+    if (name === "connect_firefox") return await connectFirefox(args.code);
     const result = await forward(name, args);
     if (name === "screenshot") {
       return {

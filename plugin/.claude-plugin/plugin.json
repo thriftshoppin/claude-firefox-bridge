@@ -25,9 +25,10 @@
     "connection_code": {
       "type": "string",
       "title": "Connection code from Firefox",
-      "description": "Install the Claude MCP Connect add-on in Firefox first. Then click the Claude MCP Connect icon in Firefox's toolbar (look in the puzzle-piece Extensions menu if it's hidden), click 'Copy connection code', and paste it here.",
+      "description": "Optional. Install the Claude MCP Connect add-on in Firefox, click its toolbar icon (look in the puzzle-piece Extensions menu if it's hidden), click 'Copy connection code', and paste it here. If you leave this empty, paste the code into the chat when Claude asks for it; Claude saves it for next time.",
       "sensitive": true,
-      "required": true
+      "required": false,
+      "default": ""
     },
     "port": {
       "type": "number",

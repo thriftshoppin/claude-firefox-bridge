@@ -14,7 +14,7 @@ Firefox MCP Connect gives Claude browser tools for the Firefox you already use, 
 ## Set it up
 
 1. Install the Claude MCP Connect add-on in Firefox. A welcome page opens and copies your connection code.
-2. Install this plugin. In Claude Code you can run `/plugin install firefox-mcp-connect --marketplace thriftshoppin/claude-firefox-bridge`. When Claude asks for the **Connection code from Firefox**, paste the code. To copy it again later, click the Claude MCP Connect icon in Firefox's toolbar, then **Copy connection code**.
+2. Install this plugin. In Claude Code you can run `/plugin install firefox-mcp-connect --marketplace thriftshoppin/claude-firefox-bridge`. Then give Claude the connection code. Paste it into the chat when Claude asks for it, or into the plugin's **Connection code from Firefox** setting if your Claude app shows one. To copy it again later, click the Claude MCP Connect icon in Firefox's toolbar, then **Copy connection code**.
 3. The add-on's icon turns green **ON**. Ask Claude something like "open my Firefox and find today's weather".
 
 ## Use it
@@ -29,9 +29,9 @@ Typing into password, credit-card and one-time-code fields is blocked, so Claude
 
 ## Data
 
-The plugin starts one local program, `server/bridge.js`, which has no dependencies. It talks only to the Claude MCP Connect add-on, over a WebSocket on 127.0.0.1 (port 8765 by default). The connection needs your connection code, which Claude stores as a sensitive setting, and only a Firefox add-on may connect.
+The plugin starts one local program, `server/bridge.js`, which has no dependencies. It talks only to the Claude MCP Connect add-on, over a WebSocket on 127.0.0.1 (port 8765 by default). The connection needs your connection code, and only a Firefox add-on may connect. If you enter the code in the plugin's settings, Claude stores it as a sensitive setting. If you paste it into the chat, it becomes part of that conversation, and the bridge saves it in Claude's plugin data folder on your computer so you only paste it once.
 
-Page content that Claude reads, such as text, screenshots and tab titles and addresses, goes to the Claude conversation that asked for it. Nothing is sent to the plugin's authors or to any other service. The plugin stores nothing, and the add-on keeps its settings and action log only in your Firefox. Read the full [privacy policy](https://thriftshoppin.github.io/claude-firefox-bridge/privacy).
+Page content that Claude reads, such as text, screenshots and tab titles and addresses, goes to the Claude conversation that asked for it. Nothing is sent to the plugin's authors or to any other service. Apart from that saved code, the plugin stores nothing. The add-on keeps its settings and action log only in your Firefox. Read the full [privacy policy](https://thriftshoppin.github.io/claude-firefox-bridge/privacy).
 
 ## About
 

@@ -9,7 +9,9 @@ The `firefox` tools control the user's real Firefox, with their sign-ins, cookie
 
 ## Before you start
 
-1. Call `tabs_list` to see what's open. If it says Firefox isn't connected, tell the user to open Firefox and check that the Claude MCP Connect icon in the toolbar shows **ON**. If it doesn't, they should copy the connection code from the icon's popup into this plugin's settings in Claude.
+1. Call `tabs_list` to see what's open.
+   - If it says **no connection code is set**, ask the user to click the Claude MCP Connect icon in Firefox's toolbar, click **Copy connection code**, and paste the code into the chat. Then call `connect_firefox` with exactly what they pasted. The code is saved, so this happens only once.
+   - If it says **Firefox isn't connected**, ask the user to open Firefox and check that the Claude MCP Connect icon shows **ON**. If the icon shows **…**, the codes don't match: ask them to copy the code again and paste it, then call `connect_firefox`.
 2. Do the work in a new tab with `tab_open`, rather than taking over a tab the user is reading. Close the tabs you opened when you're done, unless the user wants to keep them.
 
 ## Reading pages

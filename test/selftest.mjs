@@ -52,7 +52,7 @@ await sleep(300);
 
 // Protocol and tool metadata
 const { tools } = await client.listTools();
-check("tools/list returns 15 tools", tools.length === 15, tools.map((t) => t.name).join(","));
+check("tools/list returns 16 tools", tools.length === 16, tools.map((t) => t.name).join(","));
 check("every tool has a title and annotations", tools.every((t) => t.title && t.annotations && typeof t.annotations.readOnlyHint === "boolean" && typeof t.annotations.destructiveHint === "boolean"));
 const ro = (n) => tools.find((t) => t.name === n).annotations.readOnlyHint;
 const de = (n) => tools.find((t) => t.name === n).annotations.destructiveHint;
@@ -147,6 +147,50 @@ const c4 = await mcp("18768", "${user_config.connection_code}");
 r = await c4.callTool({ name: "tabs_list", arguments: {} });
 check("no connection code: tells the user how to get one", r.isError && /No connection code is set/.test(txt(r)));
 await c4.close();
+
+// Pairing in the chat (surfaces that can't collect plugin settings, such as Cowork)
+{
+  const os = await import("node:os");
+  const fsP = await import("node:fs");
+  const pathM = await import("node:path");
+  const dataDir = fsP.mkdtempSync(pathM.join(os.tmpdir(), "mcp-connect-data-"));
+  const pairClient = async () => {
+    const c = new Client({ name: "selftest-pair", version: "1" });
+    await c.connect(new StdioClientTransport({
+      command: process.execPath, args: [bridge],
+      env: { ...process.env, FF_BRIDGE_PORT: "18769", FF_BRIDGE_TOKEN: "", CLAUDE_PLUGIN_DATA: dataDir }, stderr: "ignore",
+    }));
+    return c;
+  };
+  let p = await pairClient();
+  await sleep(300);
+  r = await p.callTool({ name: "tabs_list", arguments: {} });
+  check("pairing: no code yet, so Claude is told to ask for it", r.isError && /paste it here; then call connect_firefox/.test(txt(r)));
+  r = await p.callTool({ name: "connect_firefox", arguments: { code: "not a code!" } });
+  check("pairing: a malformed code is rejected clearly", r.isError && /doesn't look like a connection code/.test(txt(r)));
+  const pending = p.callTool({ name: "connect_firefox", arguments: { code: CODE } });
+  await sleep(800);
+  const pe = await fakeExt(CODE, { port: "18769" });
+  r = await pending;
+  check("pairing: pasting the code connects Firefox", pe.accepted && !r.isError && txt(r).includes("Connected to Firefox (1 tabs open)") && /saved/.test(txt(r)), txt(r));
+  const savedFile = pathM.join(dataDir, "connection-code");
+  check("pairing: the code is saved in the plugin data folder", fsP.existsSync(savedFile) && fsP.readFileSync(savedFile, "utf8").trim() === CODE);
+  pe.ws.close();
+  await p.close();
+  await sleep(500);
+  p = await pairClient();
+  await sleep(300);
+  const pe2 = await fakeExt(CODE, { port: "18769" });
+  r = await p.callTool({ name: "tabs_list", arguments: {} });
+  check("pairing: after a restart the saved code is used, no settings needed", pe2.accepted && !r.isError && txt(r).includes('"tabId": 7'));
+  const change = p.callTool({ name: "connect_firefox", arguments: { code: "a-different-code-0123456789" } });
+  await sleep(500);
+  check("pairing: changing the code disconnects an add-on using the old one", pe2.ws.readyState === WebSocket.CLOSED);
+  r = await change;
+  check("pairing: says plainly when Firefox doesn't connect with the new code", r.isError && /hasn't connected yet/.test(txt(r)));
+  await p.close();
+  fsP.rmSync(dataDir, { recursive: true, force: true });
+}
 
 const failed = results.filter((x) => !x.ok).length;
 console.log(failed ? `${failed} FAILED` : `ALL ${results.length} PASSED`);

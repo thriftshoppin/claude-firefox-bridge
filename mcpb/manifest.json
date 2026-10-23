@@ -44,6 +44,10 @@
   },
   "tools": [
     {
+      "name": "connect_firefox",
+      "description": "Save the connection code pasted in the chat and connect to Firefox"
+    },
+    {
       "name": "tabs_list",
       "description": "List open Firefox tabs"
     },

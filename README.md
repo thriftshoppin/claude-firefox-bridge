@@ -22,7 +22,7 @@ You need Firefox 115 or newer, and Node.js 18 or newer on your computer, because
    ```
    /plugin install firefox-mcp-connect --marketplace thriftshoppin/claude-firefox-bridge
    ```
-4. **Paste the code** when Claude asks for the **Connection code from Firefox**, then save.
+4. **Paste the code** into the chat when Claude asks for it. Claude saves it with the `connect_firefox` tool, so you only do this once. If your Claude app shows a **Connection code from Firefox** setting for the plugin, you can paste it there instead.
 5. The Claude MCP Connect icon in Firefox turns green **ON**. Ask Claude something like "open my Firefox and find today's weather".
 
 **Claude desktop app chats:** install the one-click desktop extension `firefox-mcp-connect-<version>.mcpb` from the [latest release](https://github.com/thriftshoppin/claude-firefox-bridge/releases). Double-click it, click **Install**, and paste the same connection code.
@@ -45,6 +45,7 @@ Claude starts the bridge when it needs it and stops it when it closes. There's n
 
 | Tool | What it does | Changes anything? |
 |---|---|---|
+| `connect_firefox` | Saves the connection code you paste in the chat, and connects | Saves the code |
 | `tabs_list` | Lists open tabs | No |
 | `tab_open` | Opens a new tab at a URL | Opens a tab |
 | `tab_select` | Switches to a tab | Switches tabs |
