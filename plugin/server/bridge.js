@@ -435,7 +435,7 @@ const TOOLS = [
   {
     name: "tab_open", title: "Open tab",
     description: "Open a new tab at a URL, make it the active tab, and wait up to 15 s for it to load. Returns the new tabId.",
-    inputSchema: obj({ url: { type: "string", description: "Absolute URL, for example https://example.com" } }, ["url"]),
+    inputSchema: obj({ url: { type: "string", description: "Absolute URL, including https://" } }, ["url"]),
     annotations: hints(false, false, true),
   },
   {

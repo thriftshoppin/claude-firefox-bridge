@@ -1,7 +1,7 @@
 // Test 1: raw JSON-RPC over stdin; every stdout line must be valid MCP JSON.
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-const bridge = fileURLToPath(new URL("../server/bridge.js", import.meta.url));
+const bridge = fileURLToPath(new URL("../plugin/server/bridge.js", import.meta.url));
 const child = spawn(process.execPath, [bridge], { env: { ...process.env, FF_BRIDGE_PORT: "18799", FF_BRIDGE_TOKEN: "x" } });
 let buf = "", stdoutLines = [];
 child.stdout.on("data", (d) => { buf += d; let i; while ((i = buf.indexOf("\n")) >= 0) { stdoutLines.push(buf.slice(0, i)); buf = buf.slice(i + 1); } });

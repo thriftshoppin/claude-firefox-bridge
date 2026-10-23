@@ -33,7 +33,7 @@ You need Firefox 115 or newer, and Node.js 18 or newer on your computer, because
 Claude (plugin or desktop extension)
    |  starts, over stdio
    v
-MCP Connect bridge  (server/bridge.js, MCP server "firefox")
+MCP Connect bridge  (plugin/server/bridge.js, MCP server "firefox")
    |  WebSocket on 127.0.0.1:8765, connection code required
    v
 Claude MCP Connect add-on in Firefox  ->  acts on the tab you're working in
@@ -96,9 +96,9 @@ Neither part collects anything or sends anything to its authors or any third par
 
 | Path | What it is |
 |---|---|
-| `server/bridge.js` | The bridge. One readable file with no dependencies |
+| `plugin/` | The Claude plugin: `.claude-plugin/plugin.json`, the bridge `server/bridge.js` (one readable file, no dependencies), the skill and the icon. Only this folder is installed |
 | `extension/` | The Firefox add-on (Manifest V2) |
-| `.claude-plugin/`, `skills/` | The Claude plugin and its skill |
+| `.claude-plugin/marketplace.json` | Lets people install the plugin straight from this repository |
 | `mcpb/manifest.json` | Manifest for the one-click desktop extension |
 | `test/` | Tests: `npm install`, then `node stdio-test.mjs` and `node selftest.mjs` |
 | `build-mcpb.ps1`, `sign.ps1`, `fetch-signed.ps1` | Build the `.mcpb`; sign and download the add-on through Mozilla's API |

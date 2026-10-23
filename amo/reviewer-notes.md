@@ -11,7 +11,7 @@ This add-on and its bridge were written by Claude, Anthropic's AI assistant (thr
 1. Install Node.js 18 or newer.
 2. Clone the repository. In Firefox, install this add-on. The welcome page shows and copies a connection code. Copy it again from the toolbar popup if needed.
 3. In a terminal, from the repository root, start the bridge with the code:
-   `FF_BRIDGE_TOKEN=<code> node server/bridge.js` (Windows PowerShell: `$env:FF_BRIDGE_TOKEN='<code>'; node server/bridge.js`)
+   `FF_BRIDGE_TOKEN=<code> node plugin/server/bridge.js` (Windows PowerShell: `$env:FF_BRIDGE_TOKEN='<code>'; node plugin/server/bridge.js`)
    The bridge has no dependencies. It prints "Firefox add-on connected" to stderr, and the toolbar badge turns green "ON".
 4. To send commands without Claude, run `npm install` in `test/`, then from `test/`:
    `FF_BRIDGE_TOKEN=<code> node ffcall.mjs tabs_list '{}'`

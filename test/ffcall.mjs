@@ -24,7 +24,7 @@ if (!tool) { console.error("usage: node ffcall.mjs <tool> '<json args>' [image-o
 const client = new Client({ name: "ffcall", version: "1" });
 await client.connect(new StdioClientTransport({
   command: process.execPath,
-  args: [fileURLToPath(new URL("../server/bridge.js", import.meta.url))],
+  args: [fileURLToPath(new URL("../plugin/server/bridge.js", import.meta.url))],
   env: { ...process.env, FF_BRIDGE_TOKEN: findToken(), FF_BRIDGE_PORT: process.env.FF_BRIDGE_PORT || "8765" },
   stderr: "ignore",
 }));

@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const PORT = "18765";
 const CODE = "selftest-code-123";
 const EXT_ORIGIN = "moz-extension://selftest";
-const bridge = fileURLToPath(new URL("../server/bridge.js", import.meta.url));
+const bridge = fileURLToPath(new URL("../plugin/server/bridge.js", import.meta.url));
 const results = [];
 const check = (name, cond, info = "") => {
   results.push({ name, ok: !!cond });

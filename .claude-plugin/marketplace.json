@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "firefox-mcp-connect",
-      "source": "./",
+      "source": "./plugin",
       "description": "Unofficial, community-built with Claude (Claude Code + Cowork): lets Claude control your own Firefox. Tabs, pages, screenshots, clicks and typing, with your existing sign-ins. Needs the Claude MCP Connect Firefox add-on."
     }
   ]

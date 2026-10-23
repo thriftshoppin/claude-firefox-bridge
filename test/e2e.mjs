@@ -7,7 +7,7 @@ import { writeFileSync, createWriteStream } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const [extDir, profDir, outDir] = process.argv.slice(2);
-const bridge = fileURLToPath(new URL("../server/bridge.js", import.meta.url));
+const bridge = fileURLToPath(new URL("../plugin/server/bridge.js", import.meta.url));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
 const check = (name, cond, info = "") => { results.push({ name, ok: !!cond, info }); console.log(`${cond ? "PASS" : "FAIL"}  ${name}${info ? "  — " + info : ""}`); };

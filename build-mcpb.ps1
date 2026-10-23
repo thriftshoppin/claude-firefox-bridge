@@ -14,8 +14,8 @@ Step 'stage files' {
   if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
   New-Item -ItemType Directory -Force (Join-Path $stage 'server') | Out-Null
   Copy-Item (Join-Path $root 'mcpb\manifest.json') $stage
-  Copy-Item (Join-Path $root 'assets\icon.png') (Join-Path $stage 'icon.png')
-  Copy-Item (Join-Path $root 'server\bridge.js') (Join-Path $stage 'server\bridge.js')
+  Copy-Item (Join-Path $root 'plugin\assets\icon.png') (Join-Path $stage 'icon.png')
+  Copy-Item (Join-Path $root 'plugin\server\bridge.js') (Join-Path $stage 'server\bridge.js')
 }
 Step 'validate manifest' { npx -y @anthropic-ai/mcpb@2.1.2 validate (Join-Path $stage 'manifest.json') }
 $out = Join-Path $root "dist\firefox-mcp-connect-$version.mcpb"
