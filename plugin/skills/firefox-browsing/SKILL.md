@@ -14,6 +14,8 @@ The `firefox` tools control the user's real Firefox, with their sign-ins, cookie
    - If it says **Firefox isn't connected**, ask the user to open Firefox and check that the Claude MCP Connect icon shows **ON**. If the icon shows **…**, the codes don't match: ask them to copy the code again and paste it, then call `connect_firefox`.
 2. Do the work in a new tab with `tab_open`, rather than taking over a tab the user is reading. Close the tabs you opened when you're done, unless the user wants to keep them.
 
+If the user asks which version is running, or the tools misbehave, call `connection_status` and pass on its advice. For example, it tells you when the Claude MCP Connect add-on is outdated and how the user can update it.
+
 ## Reading pages
 
 - Use `get_page_text` to read an article or results page. Use `read_page` to see the controls on a page; each line gives a ref such as `[r12]` that `click`, `type` and `form_input` accept.

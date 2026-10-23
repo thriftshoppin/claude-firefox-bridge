@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "firefox-mcp-connect",
   "display_name": "Firefox MCP Connect",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Let Claude use your own Firefox: tabs, pages, screenshots, clicks and typing, with your existing sign-ins. Unofficial community project.",
   "long_description": "Firefox MCP Connect connects Claude to the Firefox you already use, so it keeps your sign-ins, VPN and ad blocker.\n\n**Setup**\n1. Install the Claude MCP Connect add-on in Firefox and click **Add**. A welcome page opens and copies your connection code.\n2. Paste the code into this extension's **Connection code from Firefox** field and save. To copy it again later, click the **Firefox MCP Connect** icon in Firefox's toolbar, then **Copy connection code**. If the icon is hidden, open the puzzle-piece Extensions menu first.\n3. The add-on's toolbar badge turns green **ON**. Claude can now use the Firefox tools.\n\n**Safety:** the connection is local only (127.0.0.1), protected by the code, and open only to the Firefox add-on. Typing into password, credit-card and one-time-code fields is refused. The add-on's popup has an on/off switch and a log of every action Claude took.\n\n**Privacy:** Firefox MCP Connect collects nothing and sends nothing to its authors or any third party. Page content Claude reads goes to your Claude conversation.\n\nAn independent community project, not affiliated with Anthropic or Mozilla.",
   "author": {
@@ -43,6 +43,10 @@
     }
   },
   "tools": [
+    {
+      "name": "connection_status",
+      "description": "Report bridge and add-on versions and whether they're up to date"
+    },
     {
       "name": "connect_firefox",
       "description": "Save the connection code pasted in the chat and connect to Firefox"

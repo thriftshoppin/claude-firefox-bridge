@@ -17,7 +17,7 @@ child.kill();
 const msgs = stdoutLines.map((l) => JSON.parse(l)); // throws if anything non-JSON hit stdout
 const init = msgs.find((m) => m.id === 1), list = msgs.find((m) => m.id === 2);
 const names = list.result.tools.map((t) => t.name).sort();
-const expected = ["click","connect_firefox","find","form_input","get_page_text","key","navigate","read_page","screenshot","scroll","tab_close","tab_open","tab_select","tabs_list","type","wait"];
+const expected = ["click","connect_firefox","connection_status","find","form_input","get_page_text","key","navigate","read_page","screenshot","scroll","tab_close","tab_open","tab_select","tabs_list","type","wait"];
 const ok = before === 0 && init.result.serverInfo.name === "firefox" && JSON.stringify(names) === JSON.stringify(expected) && buf === "";
 console.log(`stdout before initialize: ${before} bytes; server=${init.result.serverInfo.name}; tools(${names.length})=${names.join(",")}`);
 console.log(ok ? "PASS" : "FAIL"); process.exit(ok ? 0 : 1);

@@ -45,6 +45,7 @@ Claude starts the bridge when it needs it and stops it when it closes. There's n
 
 | Tool | What it does | Changes anything? |
 |---|---|---|
+| `connection_status` | Reports the bridge and add-on versions, and whether the add-on needs updating | No |
 | `connect_firefox` | Saves the connection code you paste in the chat, and connects | Saves the code |
 | `tabs_list` | Lists open tabs | No |
 | `tab_open` | Opens a new tab at a URL | Opens a tab |

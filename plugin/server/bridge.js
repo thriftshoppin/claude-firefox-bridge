@@ -16,7 +16,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { EventEmitter } = require("node:events");
 
-const VERSION = "1.0.4";
+const VERSION = "1.0.5";
 const log = (...a) => process.stderr.write(`[firefox-mcp-connect] ${a.join(" ")}\n`);
 console.log = console.error; // a stray console.log must never corrupt the MCP stream on stdout
 console.info = console.error;
@@ -369,6 +369,7 @@ function hmac(code, text) {
 }
 
 let unauthenticated = 0;
+let extInfo = null; // { version, login } of the connected add-on
 
 function onConnection(conn, origin) {
   if (unauthenticated >= MAX_UNAUTHENTICATED) {
@@ -429,6 +430,7 @@ function onConnection(conn, origin) {
         failPending(ext, "The Firefox connection was replaced by a newer one.");
       }
       ext = conn;
+      extInfo = { version: String(msg.version || "unknown").slice(0, 32), login: serverProof ? "v2" : "legacy" };
       conn.send(welcome);
       const v = String(msg.version || "unknown version").slice(0, 32);
       const src = String(msg.configSource || "unknown").slice(0, 32);
@@ -437,6 +439,10 @@ function onConnection(conn, origin) {
     }
     if (role === "relay") {
       if (!msg || msg.id == null || !msg.cmd) return;
+      if (msg.cmd === "connection_status") {
+        conn.send(JSON.stringify({ id: msg.id, ok: true, result: localStatus() }));
+        return;
+      }
       forward(msg.cmd, msg.args || {}).then(
         (result) => conn.send(JSON.stringify({ id: msg.id, ok: true, result })),
         (e) => conn.send(JSON.stringify({ id: msg.id, ok: false, error: e.message })),
@@ -537,6 +543,11 @@ const hints = (readOnly, destructive, openWorld, idempotent = false) => ({
 });
 
 const TOOLS = [
+  {
+    name: "connection_status", title: "Connection status",
+    description: "Report the bridge version, whether Firefox is connected, the Claude MCP Connect add-on's version and login type, and whether it is up to date, with advice for the user if something needs doing. Use it when the user asks which version is running or when the Firefox tools misbehave.",
+    inputSchema: obj({}), annotations: hints(true, false, false, true),
+  },
   {
     name: "connect_firefox", title: "Connect to Firefox",
     description: "Save the connection code the user pasted from Firefox (Claude MCP Connect toolbar icon > 'Copy connection code') and connect to their browser. Use it when another tool says no connection code is set or Firefox isn't connected and the user gives you a code. The code is saved in this plugin's data folder, so it's needed only once.",
@@ -677,6 +688,46 @@ function checkArgs(tool, args) {
   return "";
 }
 
+const LATEST_ADDON = "1.0.4";
+
+function newerThan(a, b) {
+  const pa = String(a).split(".").map((n) => parseInt(n, 10) || 0);
+  const pb = String(b).split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+  }
+  return false;
+}
+
+// Status as seen by the copy that holds the add-on's connection (the primary).
+function localStatus() {
+  const connected = !!(ext && ext.readyState === 1);
+  const info = connected ? extInfo || { version: "unknown", login: "unknown" } : null;
+  const outdated = !!info && (info.login === "legacy" || newerThan(LATEST_ADDON, info.version));
+  return {
+    bridge_version: VERSION,
+    connected,
+    connection_code_set: !!TOKEN,
+    addon_version: info ? info.version : null,
+    addon_login: info ? (info.login === "v2" ? "secure (challenge-response)" : "old login, sends the code (update the add-on)") : null,
+    addon_up_to_date: info ? !outdated : null,
+    advice: !TOKEN ? NO_CODE
+      : !connected ? NOT_CONNECTED
+      : outdated ? `The Claude MCP Connect add-on is ${info.version}; ${LATEST_ADDON} is the current version and fixes security issues. Ask the user to update it in Firefox (about:addons, then the gear menu, then Check for Updates) or install the latest version from its addons.mozilla.org page.`
+      : "Everything is up to date.",
+  };
+}
+
+async function connectionStatus() {
+  if (server || !upstream) return localStatus();
+  try {
+    const s = await forward("connection_status", {});
+    return { ...s, this_copy_bridge_version: VERSION, this_copy_role: "relay" };
+  } catch (e) {
+    return { ...localStatus(), advice: e.message };
+  }
+}
+
 async function connectFirefox(rawCode) {
   const code = String(rawCode).trim();
   if (!CODE_PATTERN.test(code)) {
@@ -735,6 +786,7 @@ async function callTool(name, args = {}) {
       return textResult(`Waited ${args.seconds} s.`);
     }
     if (name === "connect_firefox") return await connectFirefox(args.code);
+    if (name === "connection_status") return textResult(await connectionStatus());
     const result = await forward(name, args);
     if (name === "screenshot") {
       return {

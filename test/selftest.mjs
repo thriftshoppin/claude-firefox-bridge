@@ -34,14 +34,14 @@ function fakeExt(code, { origin = EXT_ORIGIN, port = PORT, legacy = false } = {}
     const headers = origin ? { Origin: origin } : {};
     const ws = new WebSocket(`ws://127.0.0.1:${port}`, { headers });
     let expectedProof = null;
-    if (legacy) ws.on("open", () => ws.send(JSON.stringify({ type: "hello", token: code, version: "test", configSource: "selftest" })));
+    if (legacy) ws.on("open", () => ws.send(JSON.stringify({ type: "hello", token: code, version: "1.0.1", configSource: "selftest" })));
     ws.on("message", (d) => {
       const m = JSON.parse(d);
       if (m.type === "challenge") {
         if (legacy) return;
         const cnonce = crypto.randomBytes(32).toString("hex");
         expectedProof = crypto.createHmac("sha256", code).update(`server|${m.nonce}|${cnonce}`).digest("hex");
-        ws.send(JSON.stringify({ type: "hello", v: 2, cnonce, proof: crypto.createHmac("sha256", code).update(`client|${m.nonce}|${cnonce}`).digest("hex"), version: "test", configSource: "selftest" }));
+        ws.send(JSON.stringify({ type: "hello", v: 2, cnonce, proof: crypto.createHmac("sha256", code).update(`client|${m.nonce}|${cnonce}`).digest("hex"), version: "1.0.4", configSource: "selftest" }));
         return;
       }
       if (m.type === "welcome") return resolve({ ws, accepted: true, serverProved: legacy ? null : m.proof === expectedProof });
@@ -62,7 +62,7 @@ await sleep(300);
 
 // Protocol and tool metadata
 const { tools } = await client.listTools();
-check("tools/list returns 16 tools", tools.length === 16, tools.map((t) => t.name).join(","));
+check("tools/list returns 17 tools", tools.length === 17, tools.map((t) => t.name).join(","));
 check("every tool has a title and annotations", tools.every((t) => t.title && t.annotations && typeof t.annotations.readOnlyHint === "boolean" && typeof t.annotations.destructiveHint === "boolean"));
 const ro = (n) => tools.find((t) => t.name === n).annotations.readOnlyHint;
 const de = (n) => tools.find((t) => t.name === n).annotations.destructiveHint;
@@ -96,8 +96,16 @@ check("still not connected after refused attempts", r.isError);
 const good = await fakeExt(CODE);
 check("right code from the add-on accepted", good.accepted);
 check("login v2: the bridge proves it knows the code before the add-on trusts it", good.serverProved === true);
+{
+  const st = JSON.parse(txt(await client.callTool({ name: "connection_status", arguments: {} })));
+  check("status: reports bridge and add-on versions, secure login, up to date", st.bridge_version === "1.0.5" && st.connected && st.addon_version === "1.0.4" && /secure/.test(st.addon_login) && st.addon_up_to_date === true, JSON.stringify(st).slice(0, 120));
+}
 const legacyExt = await fakeExt(CODE, { legacy: true });
 check("old add-on login (1.0.3 and earlier) still accepted during the transition", legacyExt.accepted);
+{
+  const st = JSON.parse(txt(await client.callTool({ name: "connection_status", arguments: {} })));
+  check("status: an old add-on is reported as outdated, with update advice", st.addon_version === "1.0.1" && st.addon_up_to_date === false && /update it in Firefox/.test(st.advice), st.advice.slice(0, 80));
+}
 legacyExt.ws.close();
 await sleep(200);
 const legacyRelay = await new Promise((resolve) => {
@@ -141,6 +149,10 @@ check("relay copy reports not connected when no add-on", r.isError && /Firefox i
 const ext3 = await fakeExt(CODE);
 r = await client2.callTool({ name: "tabs_list", arguments: {} });
 check("relay copy routes calls through the primary", !r.isError && txt(r).includes('"tabId": 7'));
+{
+  const st = JSON.parse(txt(await client2.callTool({ name: "connection_status", arguments: {} })));
+  check("status from a relay copy reports the primary's add-on connection", st.connected && st.addon_version === "1.0.4" && st.this_copy_role === "relay", JSON.stringify(st).slice(0, 100));
+}
 r = await client2.callTool({ name: "screenshot", arguments: {} });
 check("relay copy returns the screenshot image", !r.isError && r.content[0].type === "image");
 r = await client.callTool({ name: "tabs_list", arguments: {} });

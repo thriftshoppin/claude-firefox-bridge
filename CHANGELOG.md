@@ -2,6 +2,11 @@
 
 All notable changes to Firefox MCP Connect (the Claude plugin and its bridge) and Claude MCP Connect (the Firefox add-on).
 
+## 1.0.5: October 23, 2026 (plugin only)
+
+- New `connection_status` tool. It reports the bridge version, whether Firefox is connected, the add-on's version and login type, and whether the add-on is up to date. It also tells the user how to update an outdated add-on, such as one still using the old login from version 1.0.3 or earlier. Before this, Claude had no way to tell which versions it was running.
+- The add-on is unchanged. 1.0.4 is still the current add-on.
+
 ## 1.0.4: October 23, 2026 (security update)
 
 Recommended for everyone. Update both the add-on and the plugin. Full details, evidence and test results are in [SECURITY-AUDIT.md](SECURITY-AUDIT.md).
