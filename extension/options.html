@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { font: 13px system-ui, sans-serif; margin: 12px; }
+  label { display: block; margin: 10px 0 2px; font-weight: 600; }
+  input[type=text], input[type=password], input[type=number] { width: 100%; max-width: 520px; padding: 4px; font-family: monospace; }
+  button { margin-top: 8px; margin-right: 6px; padding: 4px 12px; }
+  .msg { margin-left: 4px; color: #1a7d32; }
+  p { color: #555; max-width: 560px; }
+  ol { color: #555; max-width: 560px; padding-left: 20px; }
+</style>
+</head>
+<body>
+  <p><b>Connecting Claude:</b></p>
+  <ol>
+    <li>Click <b>Copy</b> below.</li>
+    <li>In the Claude desktop app, open Settings &gt; Extensions &gt; Claude Browser Bridge, or its install dialog.</li>
+    <li>Paste into <b>Connection code</b> and save. The toolbar badge turns green <b>ON</b>.</li>
+  </ol>
+  <label for="token">Connection code</label>
+  <input type="password" id="token" autocomplete="off" spellcheck="false">
+  <div>
+    <button id="copy">Copy</button>
+    <button id="show">Show</button>
+    <button id="newcode">New code</button>
+    <span class="msg" id="codemsg"></span>
+  </div>
+  <p>New code replaces the current one. You then have to paste it into Claude again.
+     If you set Claude up by hand, you can paste Claude's existing code here instead and click Save.</p>
+  <label for="port">Port</label>
+  <input type="number" id="port" min="1" max="65535" value="8765">
+  <button id="save">Save</button><span class="msg" id="msg"></span>
+  <script src="options.js"></script>
+</body>
+</html>

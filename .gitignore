@@ -1,0 +1,10 @@
+# Contains the bridge token
+local-config.json
+extension/local-config.json
+autoconfig/last-run.log
+bridge/node_modules/
+dist/
+mcpb/server/node_modules/
+mcpb/server/bridge.js
+*.mcpb
+.amo-upload-uuid

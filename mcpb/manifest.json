@@ -1,0 +1,62 @@
+{
+  "manifest_version": "0.3",
+  "name": "claude-browser-bridge",
+  "display_name": "Claude Browser Bridge (Firefox)",
+  "version": "1.0.2",
+  "description": "Let Claude use your real Firefox: tabs, pages, screenshots, clicks and typing, with your own sign-ins.",
+  "long_description": "Claude Browser Bridge connects Claude to the Firefox you already use, so it keeps your sign-ins, VPN and ad blocker.\n\n**Setup (2 minutes)**\n1. Install the Firefox add-on: open `claude-browser-bridge-1.0.2.xpi` in Firefox and click **Add**.\n2. Get the connection code from Firefox: click the **Claude Browser Bridge** icon in Firefox's toolbar, then **Copy connection code**. If you don't see the icon, open the puzzle-piece Extensions menu in the toolbar first.\n3. Paste the code into this extension's **Connection code from Firefox** field and save.\n4. The add-on's toolbar badge turns green **ON**. Claude can now use the Firefox tools.\n\n**Safety:** the connection is local only (127.0.0.1) and protected by the code. Typing into password, credit-card and one-time-code fields is refused. The add-on's popup has an on/off switch and a log of every action Claude took.",
+  "author": { "name": "SysAdmin" },
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "server/bridge.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/bridge.js"],
+      "env": {
+        "FF_BRIDGE_TOKEN": "${user_config.connection_code}",
+        "FF_BRIDGE_PORT": "${user_config.port}"
+      }
+    }
+  },
+  "user_config": {
+    "connection_code": {
+      "type": "string",
+      "title": "Connection code from Firefox",
+      "description": "In Firefox, click the Claude Browser Bridge toolbar icon (look in the puzzle-piece Extensions menu if it's hidden), then click 'Copy connection code' and paste it here. Install the Firefox add-on first.",
+      "sensitive": true,
+      "required": true
+    },
+    "port": {
+      "type": "number",
+      "title": "Port",
+      "description": "Leave at 8765 unless another program uses it. It must match the Port in the Firefox add-on's Options.",
+      "default": 8765,
+      "min": 1024,
+      "max": 65535,
+      "required": false
+    }
+  },
+  "tools": [
+    { "name": "tabs_list", "description": "List open Firefox tabs" },
+    { "name": "tab_open", "description": "Open a new tab at a URL" },
+    { "name": "tab_select", "description": "Switch to a tab" },
+    { "name": "tab_close", "description": "Close a tab" },
+    { "name": "navigate", "description": "Go to a URL, or back / forward" },
+    { "name": "screenshot", "description": "Screenshot the visible page" },
+    { "name": "read_page", "description": "List the page's visible elements with refs" },
+    { "name": "get_page_text", "description": "Read the page's visible text" },
+    { "name": "find", "description": "Find elements by text or label" },
+    { "name": "click", "description": "Click an element or a point" },
+    { "name": "type", "description": "Type text into a field" },
+    { "name": "key", "description": "Press keys such as Enter or ctrl+a" },
+    { "name": "scroll", "description": "Scroll the page or an element" },
+    { "name": "form_input", "description": "Set a select, checkbox or radio" },
+    { "name": "wait", "description": "Wait up to 10 seconds" }
+  ],
+  "keywords": ["firefox", "browser", "automation", "tabs"],
+  "compatibility": {
+    "platforms": ["win32", "darwin", "linux"],
+    "runtimes": { "node": ">=18.0.0" }
+  }
+}

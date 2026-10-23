@@ -1,0 +1,12 @@
+{
+  "name": "claude-browser-bridge-server",
+  "version": "1.0.2",
+  "private": true,
+  "type": "module",
+  "main": "bridge.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "ws": "^8.22.0",
+    "zod": "^4.6.7"
+  }
+}
