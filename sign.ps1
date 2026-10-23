@@ -24,5 +24,5 @@ $named = Join-Path $out "tabrelay-$version.xpi"
 Copy-Item $xpi.FullName $named -Force
 Write-Host "Signed: $named" -ForegroundColor Green
 Start-Process firefox $named
-Write-Host 'Firefox will ask to add the extension: click Add. Then open its Options and paste the token.'
+Write-Host 'Firefox will ask to add the extension: click Add. Then copy the connection code from its toolbar popup into Claude.'
 Remove-Item Env:WEB_EXT_API_SECRET, Env:WEB_EXT_API_KEY -ErrorAction SilentlyContinue
