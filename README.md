@@ -1,3 +1,5 @@
+![Firefox MCP Connect icon: a browser window with a C and a text cursor](assets/icon-128.png)
+
 # Firefox MCP Connect: let Claude use your Firefox
 
 Unofficial, community-built with Claude (Claude Code + Cowork): lets Claude control your own Firefox. Firefox MCP Connect works in the Firefox you already use, with your own sign-ins, cookies, VPN and ad blocker. Claude can list and switch tabs, open pages, read them, take screenshots, click, type, press keys and scroll. You stay in control: there's an on/off switch, a log of every action, and password and payment fields are off limits.
@@ -109,6 +111,11 @@ Neither part collects anything or sends anything to its authors or any third par
 Claude designed and wrote this project: the add-on, the bridge, the plugin, the tests and these docs. It worked through Claude Code in VS Code and Claude Cowork, at the direction of [thriftshoppin](https://github.com/thriftshoppin). It follows Anthropic's directory policy for plugins: every tool has annotations, page content is treated as untrusted, typing into password, payment and one-time-code fields is blocked, and all data stays on your computer.
 
 Being built with Claude doesn't make this an Anthropic product. It isn't affiliated with, made by, reviewed by or endorsed by Anthropic or Mozilla.
+
+## Credits
+
+- Icon: an original design, not the Claude or Firefox logo. The icon lettering uses [Newsreader](https://github.com/productiontype/Newsreader) by Production Type, licensed under the SIL Open Font License 1.1 ([assets/Newsreader-OFL.txt](assets/Newsreader-OFL.txt)).
+- An orange icon and a white version for light backgrounds are in [assets/](assets/).
 
 ## License
 
