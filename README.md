@@ -48,15 +48,15 @@ Claude starts the bridge when it needs it and stops it when it closes. There's n
 | `connection_status` | Reports the bridge and add-on versions, and whether the add-on needs updating | No |
 | `connect_firefox` | Saves the connection code you paste in the chat, and connects | Saves the code |
 | `tabs_list` | Lists open tabs | No |
-| `tab_open` | Opens a new tab at a URL | Opens a tab |
+| `tab_open` | Opens a new tab at a web address (http or https only) | Opens a tab |
 | `tab_select` | Switches to a tab | Switches tabs |
 | `tab_close` | Closes a tab | Yes |
-| `navigate` | Loads a URL, or goes back or forward | Yes |
+| `navigate` | Loads a web address (http or https only), or goes back or forward | Yes |
 | `screenshot` | Captures the visible page; pixels equal CSS pixels | No |
 | `read_page` | Lists the page's visible elements with refs | No |
 | `get_page_text` | Returns the page's visible text | No |
 | `find` | Finds elements by text or label | No |
-| `click` | Clicks an element or a point | Yes |
+| `click` | Clicks an element or a point. Links to apps, mail or files are refused | Yes |
 | `type` | Types into a field | Yes |
 | `key` | Presses keys such as Enter or ctrl+a | Yes |
 | `scroll` | Scrolls the page or an element | Scrolls |
@@ -71,9 +71,11 @@ The plugin also includes a skill that tells Claude to work in a new tab, to trea
 - **Connection code, never sent.** The add-on and the bridge log in with a challenge-response: each proves it knows your code without sending it, and the add-on obeys commands only after the bridge has proved itself. So even a program that grabs the port first learns nothing useful and can't drive your browser. The code is random and 64 characters long, and the add-on can make a new one at any time (Options > New code).
 - **Firefox add-ons only.** The bridge refuses connections from web pages, because only a `moz-extension://` origin may connect as the add-on.
 - **Kill switch.** The checkbox in the add-on's popup disconnects Claude immediately.
+- **Safe re-pairing.** A code pasted into `connect_firefox` is saved only after the add-on has logged in with it. A typo can't replace a working code.
 - **Action log.** The popup shows the last 20 of up to 300 logged actions. The log stays on your computer, and it records how many characters Claude typed, never the text itself.
-- **Blocked fields.** Typing into password, payment-card and one-time-code fields is refused wherever the add-on can detect them: by field type, autocomplete hints, password-style masking, or names and labels such as "card number", "CVV" or "PIN". A page can still disguise a field, so Claude is also told to leave these to you.
-- **Blocked pages.** Firefox's own pages (`about:`, `moz-extension:`, `view-source:`) and addons.mozilla.org are refused.
+- **Blocked fields.** Typing into password, payment-card and one-time-code fields is refused wherever the add-on can detect them: by field type, autocomplete hints, password-style masking, or names and labels such as "card number", "CVV" or "PIN". While such a field is focused, no keys at all reach it, not even shortcuts like Ctrl+V. A page can still disguise a field, so Claude is also told to leave these to you.
+- **Web addresses only.** Claude can open only `http` and `https` addresses. App links (`calculator:`, `ms-settings:`, `search-ms:`, `vscode:`, `steam:`, `mailto:`), files and network shares, and browser pages (`about:`, `view-source:`, `moz-extension:`, `data:`, `javascript:`) are refused, both in the bridge and again in the add-on. Clicking an in-page link to an app or mail address is refused too, so nothing can hand off to another program on your computer.
+- **Blocked pages.** Firefox's own pages and addons.mozilla.org can't be read or controlled.
 
 Security audit log: [SECURITY-AUDIT.md](SECURITY-AUDIT.md). Changes: [CHANGELOG.md](CHANGELOG.md). Report a vulnerability: [SECURITY.md](SECURITY.md).
 

@@ -223,6 +223,16 @@
 
   function click(args) {
     const { el, x, y } = resolveTarget(args);
+    // Links may lead only to web pages (or run the page's own javascript: handlers). mailto:, app links such as
+    // calculator: or ms-settings:, and file: links are refused, so a click can't hand off to another program.
+    const link = el.closest && el.closest("a[href], area[href]");
+    if (link) {
+      let proto = "";
+      try { proto = new URL(link.getAttribute("href"), document.baseURI).protocol; } catch (e) { proto = ""; }
+      if (proto && !["http:", "https:", "javascript:"].includes(proto)) {
+        throw new Error(`Only links to web pages can be clicked. This link uses "${proto}", which would open another program or a non-web page.`);
+      }
+    }
     const button = args.button === "right" ? 2 : 0;
     const one = (detail) => {
       mouse(el, "pointerover", x, y, button); mouse(el, "pointerenter", x, y, button);
@@ -358,7 +368,8 @@
     const metaKey = mods.includes("meta") || mods.includes("cmd") || mods.includes("win");
     const key = KEY_ALIASES[keyName.toLowerCase()] || (keyName.length === 1 ? keyName : keyName[0].toUpperCase() + keyName.slice(1));
     const el = deepActive() || document.body;
-    if (isSensitive(el) && key.length === 1 && !ctrlKey && !metaKey && !altKey) throw new Error("Typing into password/payment fields is disabled.");
+    // No key at all (not even shortcuts like ctrl+v) reaches a password, payment or one-time-code field.
+    if (isSensitive(el)) throw new Error("Keys can't be sent while a password, payment or one-time-code field is focused. Ask the user to fill it in.");
     const code = key === " " ? "Space" : key.length === 1 ? (/[a-z]/i.test(key) ? `Key${key.toUpperCase()}` : /[0-9]/.test(key) ? `Digit${key}` : "") : key;
     const init = { key, code, ctrlKey, shiftKey, altKey, metaKey, bubbles: true, cancelable: true, composed: true };
     if (key === "Enter") Object.assign(init, { keyCode: 13, which: 13 });

@@ -2,10 +2,24 @@
 
 All notable changes to Firefox MCP Connect (the Claude plugin and its bridge) and Claude MCP Connect (the Firefox add-on).
 
-## 1.0.5: October 23, 2026 (plugin only)
+## Plugin 1.0.6 and add-on 1.0.5: October 23, 2026 (security update)
+
+Found by a penetration test run from Claude Cowork, which attacked the latest builds through the tools themselves. Update both the add-on and the plugin. Details are in [SECURITY-AUDIT.md](SECURITY-AUDIT.md), Audit 2.
+
+### Security
+- **Only web addresses can be opened (SEC-13, medium).** `tab_open` and `navigate` used to accept app links such as `calculator:`, `ms-settings:`, `search-ms:` and `vscode:`. Firefox then asked "Allow Claude MCP Connect to open this link with …?", so one click, or the "Always allow" box ticked once, would let a prompt-injected page start Windows programs. Now only `http` and `https` are allowed. The bridge checks this, and the add-on checks it again. This also closes `view-source:` and `moz-extension:` tabs (SEC-14).
+- **Links to apps or mail can't be clicked (SEC-15).** Clicking an in-page link that uses another scheme, such as `calculator:`, `ms-settings:` or `mailto:`, is refused. Ordinary `javascript:` in-page links still work.
+- **No keys reach a protected field (SEC-16).** While a password, payment-card or one-time-code field is focused, every key is refused, including shortcuts like Ctrl+V. Before, only plain typing was.
+- **Re-pairing can't break a working connection (SEC-17).** A code pasted into `connect_firefox` is now saved only after the add-on has logged in with it. A wrong or garbled code leaves the working code in place and says so.
+
+### Tests
+- The selftest now runs 59 checks: 16 refused address types, verify-before-save pairing, and status.
+- The live attack suite now runs 30 checks: app and file addresses (refused by the bridge, and by the add-on on its own), link clicks, and keys on a focused password field.
+
+## Plugin 1.0.5: October 23, 2026
 
 - New `connection_status` tool. It reports the bridge version, whether Firefox is connected, the add-on's version and login type, and whether the add-on is up to date. It also tells the user how to update an outdated add-on, such as one still using the old login from version 1.0.3 or earlier. Before this, Claude had no way to tell which versions it was running.
-- The add-on is unchanged. 1.0.4 is still the current add-on.
+- The add-on was unchanged in this release.
 
 ## 1.0.4: October 23, 2026 (security update)
 

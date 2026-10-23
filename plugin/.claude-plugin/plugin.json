@@ -1,7 +1,7 @@
 {
   "name": "firefox-mcp-connect",
   "displayName": "Firefox MCP Connect",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Unofficial, community-built with Claude (Claude Code + Cowork): lets Claude control your own Firefox. List and switch tabs, open pages, read them, take screenshots, click, type and scroll, with your existing sign-ins. Needs the free Claude MCP Connect Firefox add-on. Not affiliated with or endorsed by Anthropic or Mozilla.",
   "author": {
     "name": "thriftshoppin",

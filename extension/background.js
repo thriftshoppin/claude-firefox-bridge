@@ -53,6 +53,24 @@ function scheduleReconnect() {
   backoff = Math.min(backoff * 2, 10000);
 }
 
+// Only plain web addresses may be opened (the bridge checks this too). Other schemes such as calculator:,
+// ms-settings:, search-ms:, vscode:, file:, view-source:, moz-extension:, data: or javascript: could hand off to
+// other programs or privileged pages, and Firefox would ask the user to allow it.
+function webUrlOrThrow(input) {
+  const s = String(input || "").trim();
+  const refuse = () => { throw new Error("Only http(s) URLs are allowed. Other kinds of links (apps, files, browser pages) can't be opened."); };
+  if (!s || s.includes("\\") || s.startsWith("//") || /[\u0000- \u007f]/.test(s)) refuse();
+  let candidate = s;
+  if (!/^https?:\/\//i.test(s)) {
+    if (/^[a-z][a-z0-9+.-]*:/i.test(s) && !/^[a-z0-9.-]+:\d+(\/|$)/i.test(s)) refuse();
+    candidate = `https://${s}`;
+  }
+  let u;
+  try { u = new URL(candidate); } catch (e) { refuse(); }
+  if ((u.protocol !== "http:" && u.protocol !== "https:") || u.username || u.password) refuse();
+  return u.href;
+}
+
 function randomHex(bytes) {
   return Array.from(crypto.getRandomValues(new Uint8Array(bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -275,7 +293,8 @@ const commands = {
   },
 
   async tab_open({ url }) {
-    const t = await browser.tabs.create({ url, active: true });
+    const safe = webUrlOrThrow(url);
+    const t = await browser.tabs.create({ url: safe, active: true });
     await browser.windows.update(t.windowId, { focused: true }).catch(() => {});
     const timedOut = await waitForComplete(t.id);
     const now = await browser.tabs.get(t.id);
@@ -299,10 +318,7 @@ const commands = {
     const wait = waitForComplete(tab.id);
     if (target === "back") await browser.tabs.goBack(tab.id);
     else if (target === "forward") await browser.tabs.goForward(tab.id);
-    else {
-      const u = /^[a-z][a-z0-9+.-]*:/i.test(target) ? target : `https://${target}`;
-      await browser.tabs.update(tab.id, { url: u });
-    }
+    else await browser.tabs.update(tab.id, { url: webUrlOrThrow(target) });
     const timedOut = await wait;
     const now = await browser.tabs.get(tab.id);
     return { tabId: now.id, url: now.url, title: now.title, ...(timedOut ? { note: "load not complete after 15 s" } : {}) };

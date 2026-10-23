@@ -41,7 +41,7 @@ function fakeExt(code, { origin = EXT_ORIGIN, port = PORT, legacy = false } = {}
         if (legacy) return;
         const cnonce = crypto.randomBytes(32).toString("hex");
         expectedProof = crypto.createHmac("sha256", code).update(`server|${m.nonce}|${cnonce}`).digest("hex");
-        ws.send(JSON.stringify({ type: "hello", v: 2, cnonce, proof: crypto.createHmac("sha256", code).update(`client|${m.nonce}|${cnonce}`).digest("hex"), version: "1.0.4", configSource: "selftest" }));
+        ws.send(JSON.stringify({ type: "hello", v: 2, cnonce, proof: crypto.createHmac("sha256", code).update(`client|${m.nonce}|${cnonce}`).digest("hex"), version: "1.0.5", configSource: "selftest" }));
         return;
       }
       if (m.type === "welcome") return resolve({ ws, accepted: true, serverProved: legacy ? null : m.proof === expectedProof });
@@ -98,7 +98,7 @@ check("right code from the add-on accepted", good.accepted);
 check("login v2: the bridge proves it knows the code before the add-on trusts it", good.serverProved === true);
 {
   const st = JSON.parse(txt(await client.callTool({ name: "connection_status", arguments: {} })));
-  check("status: reports bridge and add-on versions, secure login, up to date", st.bridge_version === "1.0.5" && st.connected && st.addon_version === "1.0.4" && /secure/.test(st.addon_login) && st.addon_up_to_date === true, JSON.stringify(st).slice(0, 120));
+  check("status: reports bridge and add-on versions, secure login, up to date", st.bridge_version === "1.0.6" && st.connected && st.addon_version === "1.0.5" && /secure/.test(st.addon_login) && st.addon_up_to_date === true, JSON.stringify(st).slice(0, 120));
 }
 const legacyExt = await fakeExt(CODE, { legacy: true });
 check("old add-on login (1.0.3 and earlier) still accepted during the transition", legacyExt.accepted);
@@ -126,6 +126,24 @@ r = await client.callTool({ name: "screenshot", arguments: {} });
 check("screenshot returns an image plus the viewport line", r.content[0].type === "image" && /viewport 1x1 CSS px/.test(txt(r)));
 r = await client.callTool({ name: "click", arguments: { ref: "r1" } });
 check("add-on errors come back as tool errors", r.isError && txt(r).includes("boom from page"));
+{
+  // Only http(s) may be opened; everything else is refused in the bridge before reaching the add-on.
+  const bad = ["calculator:", "ms-settings:display", "search-ms:query=*.exe", "vscode://file/C:/x", "steam://run/1", "mailto:a@b.c",
+    "file:///C:/Windows/win.ini", "\\\\host\\share", "//host/share", "view-source:https://example.com", "moz-extension://abc/popup.html",
+    "data:text/html,x", "javascript:alert(1)", "about:config", "chrome://settings", "https://user:pass@evil.example"];
+  const leaked = [];
+  for (const u of bad) {
+    for (const tool of ["tab_open", "navigate"]) {
+      const res = await client.callTool({ name: tool, arguments: { url: u } });
+      if (!(res.isError && /Only http\(s\) URLs are allowed/.test(txt(res)))) leaked.push(`${tool} ${u}`);
+    }
+  }
+  check(`URL allowlist: ${bad.length} non-web addresses refused by tab_open and navigate`, leaked.length === 0, leaked.join(", "));
+  r = await client.callTool({ name: "tab_open", arguments: { url: "example.com/path" } });
+  check("URL allowlist: a bare domain is opened as https", !r.isError && txt(r).includes('"url": "https://example.com/path"'), txt(r).slice(0, 80));
+  r = await client.callTool({ name: "navigate", arguments: { url: "back" } });
+  check("URL allowlist: navigate back still works", !r.isError && txt(r).includes('"url": "back"'));
+}
 const t0 = Date.now();
 r = await client.callTool({ name: "wait", arguments: { seconds: 0.5 } });
 check("wait is handled in the bridge", !r.isError && Date.now() - t0 >= 450);
@@ -151,7 +169,7 @@ r = await client2.callTool({ name: "tabs_list", arguments: {} });
 check("relay copy routes calls through the primary", !r.isError && txt(r).includes('"tabId": 7'));
 {
   const st = JSON.parse(txt(await client2.callTool({ name: "connection_status", arguments: {} })));
-  check("status from a relay copy reports the primary's add-on connection", st.connected && st.addon_version === "1.0.4" && st.this_copy_role === "relay", JSON.stringify(st).slice(0, 100));
+  check("status from a relay copy reports the primary's add-on connection", st.connected && st.addon_version === "1.0.5" && st.this_copy_role === "relay", JSON.stringify(st).slice(0, 100));
 }
 r = await client2.callTool({ name: "screenshot", arguments: {} });
 check("relay copy returns the screenshot image", !r.isError && r.content[0].type === "image");
@@ -220,11 +238,23 @@ await c4.close();
   const pe2 = await fakeExt(CODE, { port: "18769" });
   r = await p.callTool({ name: "tabs_list", arguments: {} });
   check("pairing: after a restart the saved code is used, no settings needed", pe2.accepted && !r.isError && txt(r).includes('"tabId": 7'));
-  const change = p.callTool({ name: "connect_firefox", arguments: { code: "a-different-code-0123456789" } });
-  await sleep(500);
-  check("pairing: changing the code disconnects an add-on using the old one", pe2.ws.readyState === WebSocket.CLOSED);
-  r = await change;
-  check("pairing: says plainly when Firefox doesn't connect with the new code", r.isError && /hasn't connected yet/.test(txt(r)));
+  // A wrong or mistyped new code must never replace the working one (verify before saving).
+  r = await p.callTool({ name: "connect_firefox", arguments: { code: "a-different-code-0123456789" } });
+  check("pairing: a new code that never connects is rejected with a clear message", r.isError && /previous code is still in use and nothing was saved/.test(txt(r)), txt(r).slice(0, 80));
+  check("pairing: the working add-on connection stays up meanwhile", pe2.ws.readyState === WebSocket.OPEN);
+  check("pairing: the saved code is unchanged", fsP.readFileSync(savedFile, "utf8").trim() === CODE);
+  r = await p.callTool({ name: "tabs_list", arguments: {} });
+  check("pairing: tools still work with the old code", !r.isError && txt(r).includes('"tabId": 7'));
+  // A real new code (the add-on made a new one) is adopted once the add-on logs in with it.
+  const NEWCODE = "new-code-from-the-addon-0123456789";
+  const adopt = p.callTool({ name: "connect_firefox", arguments: { code: NEWCODE } });
+  await sleep(800);
+  pe2.ws.close();
+  const pe3 = await fakeExt(NEWCODE, { port: "18769" });
+  r = await adopt;
+  check("pairing: a new code is adopted when the add-on logs in with it", pe3.accepted && !r.isError && /new code is saved/.test(txt(r)), txt(r).slice(0, 80));
+  check("pairing: the new code is saved only after it worked", fsP.readFileSync(savedFile, "utf8").trim() === NEWCODE);
+  pe3.ws.close();
   await p.close();
   fsP.rmSync(dataDir, { recursive: true, force: true });
 }

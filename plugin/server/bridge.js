@@ -16,7 +16,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { EventEmitter } = require("node:events");
 
-const VERSION = "1.0.5";
+const VERSION = "1.0.6";
 const log = (...a) => process.stderr.write(`[firefox-mcp-connect] ${a.join(" ")}\n`);
 console.log = console.error; // a stray console.log must never corrupt the MCP stream on stdout
 console.info = console.error;
@@ -52,6 +52,37 @@ const NO_CODE =
   "in this plugin's settings.)";
 
 if (!TOKEN) log("No connection code yet; waiting for one from the plugin settings or connect_firefox.");
+
+// A code pasted into connect_firefox stays "pending" until the add-on actually logs in with it. Only then does it
+// replace the working code and get saved, so a typo or garbage can never overwrite a code that works.
+let PENDING = "";
+
+function commitPending() {
+  if (!PENDING) return;
+  TOKEN = PENDING;
+  PENDING = "";
+  saveCode(TOKEN);
+  log("The new connection code worked and is saved.");
+}
+
+// Only plain web addresses may be opened. Other schemes (calculator:, ms-settings:, search-ms:, vscode:, file:,
+// view-source:, moz-extension:, data:, javascript:, UNC paths...) could hand off to other programs or privileged pages.
+function normalizeWebUrl(input) {
+  const s = String(input || "").trim();
+  if (!s || s.includes("\\") || s.startsWith("//") || /[\u0000- \u007f]/.test(s)) return null;
+  let candidate = s;
+  if (!/^https?:\/\//i.test(s)) {
+    // "example.com" or "localhost:3000/x" get https://; anything with another scheme is refused
+    if (/^[a-z][a-z0-9+.-]*:/i.test(s) && !/^[a-z0-9.-]+:\d+(\/|$)/i.test(s)) return null;
+    candidate = `https://${s}`;
+  }
+  let u;
+  try { u = new URL(candidate); } catch { return null; }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+  if (u.username || u.password) return null; // user:pass@host addresses are a phishing pattern
+  return u.href;
+}
+const ONLY_WEB = "Only http(s) URLs are allowed. Other kinds of links (apps, files, browser pages) can't be opened.";
 
 function saveCode(code) {
   if (!CODE_FILE) return false;
@@ -393,16 +424,27 @@ function onConnection(conn, origin) {
       clearTimeout(authTimer);
       let ok = false;
       let serverProof = null;
-      if (TOKEN && msg && msg.type === "hello" && msg.v === 2 &&
+      let usedPending = false;
+      const codes = [TOKEN, PENDING].filter(Boolean);
+      if (codes.length && msg && msg.type === "hello" && msg.v === 2 &&
           typeof msg.cnonce === "string" && /^[0-9a-f]{32,128}$/.test(msg.cnonce) &&
           typeof msg.proof === "string" && /^[0-9a-f]{64}$/.test(msg.proof)) {
-        ok = safeEqual(msg.proof, hmac(TOKEN, `client|${nonce}|${msg.cnonce}`));
-        serverProof = hmac(TOKEN, `server|${nonce}|${msg.cnonce}`);
-      } else if (ACCEPT_LEGACY_ADDON_LOGIN && TOKEN && msg && msg.type === "hello" && msg.role !== "relay" &&
+        for (const code of codes) {
+          if (safeEqual(msg.proof, hmac(code, `client|${nonce}|${msg.cnonce}`))) {
+            ok = true;
+            usedPending = code !== TOKEN;
+            serverProof = hmac(code, `server|${nonce}|${msg.cnonce}`);
+            break;
+          }
+        }
+      } else if (ACCEPT_LEGACY_ADDON_LOGIN && codes.length && msg && msg.type === "hello" && msg.role !== "relay" &&
                  typeof msg.token === "string" && origin) {
-        ok = safeEqual(msg.token, TOKEN);
-        if (ok) log("An add-on used the old login (version 1.0.3 or earlier). Update the add-on to 1.0.4.");
+        for (const code of codes) {
+          if (safeEqual(msg.token, code)) { ok = true; usedPending = code !== TOKEN; break; }
+        }
+        if (ok) log(`An add-on used the old login (version 1.0.3 or earlier). Update the add-on to ${LATEST_ADDON}.`);
       }
+      if (ok && usedPending) commitPending();
       if (!ok) {
         log("Refused a connection: wrong or missing connection code.");
         conn.close(4003);
@@ -688,7 +730,7 @@ function checkArgs(tool, args) {
   return "";
 }
 
-const LATEST_ADDON = "1.0.4";
+const LATEST_ADDON = "1.0.5";
 
 function newerThan(a, b) {
   const pa = String(a).split(".").map((n) => parseInt(n, 10) || 0);
@@ -736,40 +778,90 @@ async function connectFirefox(rawCode) {
         "'Copy connection code', and paste the whole code. It's a long string of letters and numbers.",
     );
   }
-  if (code !== TOKEN) {
-    TOKEN = code;
-    // Anything connected with the old code has to authenticate again.
-    if (ext) {
-      const old = ext;
-      ext = null;
-      failPending(old, "The connection code changed.");
-      try { old.close(4003); } catch {}
-    }
-    if (upstream) {
-      try { upstream.close(1000); } catch {} // the relay rejoins the primary with the new code
-    }
-  }
-  const saved = saveCode(code);
-  if (!server && !upstream) scheduleRetry(0);
+  // The new code is verified before it replaces anything: it must actually log in. Until then the working code stays.
+  const hadCode = !!TOKEN;
   const started = Date.now();
-  let lastError = "";
-  while (Date.now() - started < 12000) {
-    try {
-      const tabs = await forward("tabs_list", {});
-      return textResult(
-        `Connected to Firefox (${Array.isArray(tabs) ? tabs.length : "some"} tabs open). ` +
-          (saved ? "The code is saved, so it won't be needed again." : "The code is kept for this session only."),
-      );
-    } catch (e) {
-      lastError = e.message;
-      await new Promise((r) => setTimeout(r, 1000));
+  const tabsNow = async () => {
+    try { const t = await forward("tabs_list", {}); return Array.isArray(t) ? t.length : "some"; } catch { return null; }
+  };
+  const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
+  const SAVED = "The new code is saved, so it won't be needed again.";
+
+  if (code === TOKEN) {
+    while (Date.now() - started < 15000) {
+      const n = await tabsNow();
+      if (n !== null) return textResult(`That's already the code in use, and Firefox is connected (${n} tabs open).`);
+      await sleepMs(1000);
     }
+    return errorResult(`That's already the code in use, but Firefox isn't connected. ${NOT_CONNECTED}`);
+  }
+
+  if (!server && !upstream) scheduleRetry(0); // no bridge running yet: start one
+  while (Date.now() - started < 15000) {
+    if (server) {
+      // Primary: accept logins with the new code too; commitPending() saves it when the add-on uses it.
+      PENDING = code;
+      if (TOKEN === code) {
+        const n = await tabsNow();
+        if (n !== null) return textResult(`Connected to Firefox (${n} tabs open). ${SAVED}`);
+      }
+    } else if (await primaryAccepts(code)) {
+      // Relay: the primary bridge already knows this code, so adopt it and rejoin with it.
+      TOKEN = code;
+      saveCode(code);
+      if (upstream) { try { upstream.close(1000); } catch {} }
+      while (Date.now() - started < 20000) {
+        const n = await tabsNow();
+        if (n !== null) return textResult(`Connected to Firefox (${n} tabs open). ${SAVED}`);
+        await sleepMs(500);
+      }
+      return errorResult("The code was accepted and saved, but Firefox hasn't answered yet. Try a Firefox tool again in a moment.");
+    }
+    await sleepMs(500);
+  }
+  if (hadCode) {
+    if (PENDING === code) PENDING = "";
+    return errorResult(
+      "Firefox didn't connect with that code, so the previous code is still in use and nothing was saved. Check that it " +
+        "was copied with 'Copy connection code' in the Claude MCP Connect toolbar popup, that Firefox is open, and that " +
+        "the icon shows ON. Then paste it again.",
+    );
   }
   return errorResult(
-    `The code is ${saved ? "saved" : "set for this session"}, but Firefox hasn't connected yet. Check that Firefox is open, ` +
-      "the Claude MCP Connect toolbar icon shows ON (open its popup and tick 'Bridge enabled'), and that the code is " +
-      `the one from its 'Copy connection code' button. Then try any Firefox tool again. (${lastError})`,
+    "Firefox hasn't connected with that code yet, so it isn't saved. If Firefox connects with it during this session, " +
+      "it will be saved then. Check that Firefox is open and the Claude MCP Connect icon shows ON.",
   );
+}
+
+// Log in to the primary bridge with a candidate code, then disconnect. Resolves true if the primary accepts it.
+function primaryAccepts(code) {
+  return new Promise((resolve) => {
+    wsConnect(PORT, (err, conn) => {
+      if (err) return resolve(false);
+      let expected = null;
+      let finished = false;
+      const done = (v) => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        try { conn.close(1000); } catch {}
+        resolve(v);
+      };
+      const timer = setTimeout(() => done(false), 5000);
+      conn.on("message", (data) => {
+        let msg;
+        try { msg = JSON.parse(data); } catch { return done(false); }
+        if (msg.type === "challenge" && !expected && typeof msg.nonce === "string") {
+          const cnonce = crypto.randomBytes(32).toString("hex");
+          expected = hmac(code, `server|${msg.nonce}|${cnonce}`);
+          conn.send(JSON.stringify({ type: "hello", v: 2, role: "relay", cnonce, proof: hmac(code, `client|${msg.nonce}|${cnonce}`) }));
+          return;
+        }
+        done(!!(msg.type === "welcome" && expected && typeof msg.proof === "string" && safeEqual(msg.proof, expected)));
+      });
+      conn.on("close", () => done(false));
+    });
+  });
 }
 
 const textResult = (t) => ({ content: [{ type: "text", text: typeof t === "string" ? t : JSON.stringify(t, null, 2) }] });
@@ -787,6 +879,11 @@ async function callTool(name, args = {}) {
     }
     if (name === "connect_firefox") return await connectFirefox(args.code);
     if (name === "connection_status") return textResult(await connectionStatus());
+    if (name === "tab_open" || (name === "navigate" && !/^(back|forward)$/i.test(String(args.url).trim()))) {
+      const url = normalizeWebUrl(args.url);
+      if (!url) return errorResult(ONLY_WEB);
+      args = { ...args, url };
+    }
     const result = await forward(name, args);
     if (name === "screenshot") {
       return {
