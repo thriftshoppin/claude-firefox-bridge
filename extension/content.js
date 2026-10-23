@@ -4,25 +4,36 @@
   if (window.__claudeBridgeLoaded) return;
   window.__claudeBridgeLoaded = true;
 
+  // Refs live only inside this content script. Nothing is written to the page's DOM, so a page can neither see
+  // which elements Claude picked nor plant an element that answers to a ref.
   const refs = new Map(); // "r12" -> Element
+  const refOf = new WeakMap(); // Element -> "r12"
   let refCounter = 0;
 
   // ---------------- element helpers ----------------
   function refFor(el) {
-    let r = el.getAttribute("data-claude-ref");
+    let r = refOf.get(el);
     if (r && refs.get(r) === el) return r;
     r = `r${++refCounter}`;
-    el.setAttribute("data-claude-ref", r);
+    refOf.set(el, r);
     refs.set(r, el);
     return r;
   }
 
   function byRef(ref) {
     const key = String(ref).replace(/^\[|\]$/g, "");
-    let el = refs.get(key);
-    if (!el || !el.isConnected) el = document.querySelector(`[data-claude-ref="${CSS.escape(key)}"]`);
-    if (!el) throw new Error(`Unknown or stale ref "${ref}". Call read_page or find again.`);
+    const el = refs.get(key);
+    if (!el) throw new Error(`Unknown ref "${ref}". Call read_page or find again.`);
+    if (!el.isConnected) throw new Error(`The element for ref "${ref}" is no longer on the page. Call read_page or find again.`);
     return el;
+  }
+
+  // Every element, including those inside open shadow roots.
+  function* allElements(root) {
+    for (const el of root.querySelectorAll("*")) {
+      yield el;
+      if (el.shadowRoot) yield* allElements(el.shadowRoot);
+    }
   }
 
   function isVisible(el) {
@@ -163,7 +174,7 @@
     if (!q) throw new Error("Empty query.");
     const hits = [];
     const attrs = ["aria-label", "placeholder", "title", "alt", "name", "value"];
-    for (const el of document.body.querySelectorAll("*")) {
+    for (const el of allElements(document.body)) {
       if (SKIP_TAGS.has(el.tagName.toUpperCase())) continue;
       if (!isVisible(el)) continue;
       let matched = attrs.some((a) => (el.getAttribute(a) || "").toLowerCase().includes(q));
@@ -237,11 +248,38 @@
     return `clicked ${roleOf(el)} "${nameOf(el)}" at ${x},${y}${args.double ? " (double)" : ""}${button === 2 ? " (right)" : ""}`;
   }
 
+  // Fields Claude must never type into: passwords, payment details and one-time codes. Detected from the field's
+  // type, autocomplete, masking, and its name, id, label, placeholder and ARIA text. Best effort: a page can still
+  // disguise a field, so the skill also tells Claude to leave these to the user.
+  const SENSITIVE_HINT = new RegExp([
+    "\\bpass(word|wd|code|phrase)?\\b", "\\bpin\\b", "\\bcard ?(number|no|num)\\b", "\\bcc ?(number|num|csc|cvc|cvv|exp)",
+    "\\bcvv2?\\b", "\\bcvc\\b", "\\bcsc\\b", "security ?code", "\\bexp(iry|iration)?( date| month| year)?\\b",
+    "\\botp\\b", "one ?time ?(code|pass)", "verification ?code", "auth(entication)? ?code", "\\b2fa\\b", "\\bmfa\\b",
+    "\\bssn\\b", "social security", "\\biban\\b", "routing ?number", "account ?number",
+  ].join("|"), "i");
+
+  function hintText(el) {
+    const parts = ["name", "id", "autocomplete", "aria-label", "placeholder", "title"].map((a) => el.getAttribute(a) || "");
+    try { if (el.labels) for (const l of el.labels) parts.push(l.textContent || ""); } catch (e) { /* not labelable */ }
+    const lb = el.getAttribute("aria-labelledby");
+    if (lb) for (const id of lb.split(/\s+/)) parts.push((el.getRootNode().getElementById?.(id) || document.getElementById(id))?.textContent || "");
+    // "cardNumber", "card_number" and "card-number" all become "card number"
+    return parts.join(" ").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_\-.[\]]+/g, " ").slice(0, 2000);
+  }
+
   function isSensitive(el) {
     if (!el || !el.getAttribute) return false;
     const type = (el.getAttribute("type") || "").toLowerCase();
     const ac = (el.getAttribute("autocomplete") || "").toLowerCase();
-    return (el.tagName === "INPUT" && type === "password") || ac.includes("cc-") || ac.includes("one-time-code");
+    if (el.tagName === "INPUT" && type === "password") return true;
+    if (/\bcc-|one-time-code|current-password|new-password/.test(ac)) return true;
+    try {
+      const masking = getComputedStyle(el).getPropertyValue("-webkit-text-security");
+      if (masking && masking !== "none") return true; // a text field drawn as dots, like a password
+    } catch (e) { /* ignore */ }
+    const editable = el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable ||
+      (el.tagName === "INPUT" && !["checkbox", "radio", "button", "submit", "reset", "file", "image", "range", "color", "hidden"].includes(type));
+    return editable && SENSITIVE_HINT.test(hintText(el));
   }
 
   function deepActive() {
@@ -441,7 +479,7 @@
   browser.runtime.onMessage.addListener((msg) => {
     if (!msg || !msg.__claude) return undefined;
     try {
-      const fn = handlers[msg.cmd];
+      const fn = Object.hasOwn(handlers, msg.cmd) ? handlers[msg.cmd] : null;
       if (!fn) throw new Error(`Unknown page command ${msg.cmd}`);
       return Promise.resolve({ ok: true, result: fn(msg.args || {}) });
     } catch (e) {

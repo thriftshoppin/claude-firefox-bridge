@@ -32,5 +32,6 @@ This add-on and its bridge were written by Claude, Anthropic's AI assistant (thr
 ## Data handling
 - `data_collection_permissions: none`. Nothing is sent anywhere except to the local bridge on 127.0.0.1, which the user's own Claude app starts.
 - Page content returned to the bridge goes to the user's Claude conversation at the user's request. That's the add-on's purpose.
-- Typing into `input[type=password]` and into fields with `autocomplete` containing `cc-` or `one-time-code` is refused in `content.js`.
+- Typing is refused into fields detected as password, payment-card or one-time-code: `input[type=password]`, `autocomplete` containing `cc-`, `one-time-code` or `*-password`, `-webkit-text-security` masking, or name, id, label, placeholder or ARIA text matching card number, CVV, PIN, OTP and similar (`isSensitive` in `content.js`).
+- Login (1.0.4): the bridge sends a random challenge, the add-on answers with HMAC-SHA256(code, challenge), and the bridge proves itself the same way. The add-on ignores all commands until the bridge's proof checks out. The code is never sent.
 - Privileged pages (about:, moz-extension:, view-source:, data:) and addons.mozilla.org are refused in `background.js`.

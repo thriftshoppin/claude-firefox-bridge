@@ -5,7 +5,7 @@ permalink: /privacy
 
 # Privacy policy: Claude MCP Connect and Firefox MCP Connect
 
-_Last updated: October 23, 2026 (connection code pasted in the chat)_
+_Last updated: October 23, 2026 (version 1.0.4 security update)_
 
 MCP Connect is two pieces of software that run on your own computer: the **Claude MCP Connect** add-on for Firefox, and the **Firefox MCP Connect** plugin or desktop extension for Claude, which runs a small local program called the bridge. This policy covers both. MCP Connect is an independent community project, not affiliated with Anthropic or Mozilla.
 
@@ -26,8 +26,10 @@ All of it stays on your computer:
 
 - **Connection code:** a random code the add-on creates so that only your Claude can connect. The add-on keeps it in Firefox's extension storage. Claude's copy is kept one of two ways. If you enter it in the plugin's settings, Claude stores it in your system's secure credential store. If you paste it into the chat, it becomes part of that conversation, and the bridge saves it in a file in Claude's plugin data folder on your computer, so you only paste it once.
 - **Settings:** the port number and the on/off switch, in Firefox's extension storage.
-- **Action log:** the add-on records the last 300 actions Claude took (time, action, page address and a short summary) so you can review them in the add-on's popup. The log never leaves your computer. You can clear it by removing the add-on.
+- **Action log:** the add-on records the last 300 actions Claude took (time, action, page address and a short summary; for typing, only the number of characters, never the text) so you can review them in the add-on's popup. The log never leaves your computer. You can clear it by removing the add-on.
 - **The bridge stores nothing else.** Apart from a pasted connection code, it writes no files and keeps nothing after Claude closes it.
+
+The welcome page copies the connection code to your clipboard. Clipboard history or cloud clipboard sync, if you use them, may keep a copy.
 
 ## Retention and deletion
 
@@ -35,7 +37,7 @@ Data stays only as long as the add-on is installed. Removing the add-on from Fir
 
 ## Sensitive fields
 
-MCP Connect refuses to type into password, credit-card and one-time-code fields, so Claude can't enter those for you.
+MCP Connect refuses to type into password, payment-card and one-time-code fields wherever it can detect them, so Claude can't enter those for you. A page can disguise a field, so this is a safeguard, not a guarantee.
 
 ## Children
 

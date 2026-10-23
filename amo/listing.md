@@ -20,10 +20,10 @@ Claude MCP Connect connects Firefox to Claude, so Claude can work in the browser
 
 **You stay in control**
 - It connects only to a program on your own computer (127.0.0.1), never to the internet.
-- A random connection code, created by the add-on, has to match before anything is accepted.
+- A random connection code, created by the add-on, is checked with a challenge-response, so the code itself is never sent, and the add-on obeys only a bridge that proves it knows the code.
 - An on/off switch in the toolbar popup disconnects Claude at once.
 - A log of every action Claude took stays on your computer, where you can review it.
-- It refuses to type into password, credit-card and one-time-code fields.
+- It refuses to type into password, payment-card and one-time-code fields wherever it can detect them.
 - It doesn't run in private windows unless you allow it.
 
 **Privacy:** Claude MCP Connect collects and sends nothing to its authors or any third party. Privacy policy: https://thriftshoppin.github.io/claude-firefox-bridge/privacy

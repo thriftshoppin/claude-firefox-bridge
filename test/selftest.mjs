@@ -4,6 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import WebSocket, { WebSocketServer } from "ws";
 import { fileURLToPath } from "node:url";
+import crypto from "node:crypto";
 
 const PORT = "18765";
 const CODE = "selftest-code-123";
@@ -27,14 +28,23 @@ async function mcp(port, code = CODE) {
 }
 
 // Fake add-on. Resolves with { ws, accepted, code, httpStatus }.
-function fakeExt(code, { origin = EXT_ORIGIN, port = PORT } = {}) {
+// Plays the add-on's v2 login (challenge-response) unless legacy is set, then the old "send the code" login.
+function fakeExt(code, { origin = EXT_ORIGIN, port = PORT, legacy = false } = {}) {
   return new Promise((resolve) => {
     const headers = origin ? { Origin: origin } : {};
     const ws = new WebSocket(`ws://127.0.0.1:${port}`, { headers });
-    ws.on("open", () => ws.send(JSON.stringify({ type: "hello", token: code, version: "test", configSource: "selftest" })));
+    let expectedProof = null;
+    if (legacy) ws.on("open", () => ws.send(JSON.stringify({ type: "hello", token: code, version: "test", configSource: "selftest" })));
     ws.on("message", (d) => {
       const m = JSON.parse(d);
-      if (m.type === "welcome") return resolve({ ws, accepted: true });
+      if (m.type === "challenge") {
+        if (legacy) return;
+        const cnonce = crypto.randomBytes(32).toString("hex");
+        expectedProof = crypto.createHmac("sha256", code).update(`server|${m.nonce}|${cnonce}`).digest("hex");
+        ws.send(JSON.stringify({ type: "hello", v: 2, cnonce, proof: crypto.createHmac("sha256", code).update(`client|${m.nonce}|${cnonce}`).digest("hex"), version: "test", configSource: "selftest" }));
+        return;
+      }
+      if (m.type === "welcome") return resolve({ ws, accepted: true, serverProved: legacy ? null : m.proof === expectedProof });
       const reply = (result) => ws.send(JSON.stringify({ id: m.id, ok: true, result }));
       if (m.cmd === "tabs_list") reply([{ tabId: 7, title: "Fake", url: "https://example.com/", active: true, windowId: 1 }]);
       else if (m.cmd === "screenshot") reply({ data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", width: 1, height: 1, tabId: 7 });
@@ -85,6 +95,21 @@ check("still not connected after refused attempts", r.isError);
 // Routing
 const good = await fakeExt(CODE);
 check("right code from the add-on accepted", good.accepted);
+check("login v2: the bridge proves it knows the code before the add-on trusts it", good.serverProved === true);
+const legacyExt = await fakeExt(CODE, { legacy: true });
+check("old add-on login (1.0.3 and earlier) still accepted during the transition", legacyExt.accepted);
+legacyExt.ws.close();
+await sleep(200);
+const legacyRelay = await new Promise((resolve) => {
+  const ws = new WebSocket(`ws://127.0.0.1:${PORT}`);
+  ws.on("open", () => ws.send(JSON.stringify({ type: "hello", token: CODE, role: "relay" })));
+  ws.on("message", (d) => { if (JSON.parse(d).type === "welcome") resolve("accepted"); });
+  ws.on("close", (c) => resolve("closed " + c));
+  ws.on("error", () => {});
+});
+check("the old login can't be used to join as a relay", legacyRelay === "closed 4003", legacyRelay);
+const good2 = await fakeExt(CODE);
+check("add-on reconnects after the legacy checks", good2.accepted);
 r = await client.callTool({ name: "tabs_list", arguments: {} });
 check("tabs_list routed to the add-on", !r.isError && txt(r).includes('"tabId": 7'));
 r = await client.callTool({ name: "navigate", arguments: { url: "back", tabId: 7 } });
@@ -190,6 +215,59 @@ await c4.close();
   check("pairing: says plainly when Firefox doesn't connect with the new code", r.isError && /hasn't connected yet/.test(txt(r)));
   await p.close();
   fsP.rmSync(dataDir, { recursive: true, force: true });
+}
+
+// Security: port squatting, pre-login limits
+{
+  // A program holding the port before the bridge starts: it gets a relay's login but must learn nothing reusable.
+  const SQ = "18795";
+  const seen = [];
+  const squat = new WebSocketServer({ host: "127.0.0.1", port: Number(SQ) });
+  squat.on("connection", (s) => {
+    s.send(JSON.stringify({ type: "challenge", v: 2, nonce: "ab".repeat(32) }));
+    s.on("message", (d) => {
+      seen.push(String(d));
+      s.send(JSON.stringify({ type: "welcome", v: 2, proof: "00".repeat(32) })); // can't produce a real proof
+      s.send(JSON.stringify({ id: 1, ok: true, result: [{ tabId: 666, title: "FAKE", url: "https://fake/" }] }));
+    });
+  });
+  const victim = await mcp(SQ);
+  await sleep(1200);
+  r = await victim.callTool({ name: "tabs_list", arguments: {} });
+  check("squatter: the bridge never sends the connection code", seen.length > 0 && !seen.some((m) => m.includes(CODE)), seen[0] ? "squatter saw only a nonce and an HMAC proof" : "no message seen");
+  check("squatter: a fake welcome without a valid proof isn't trusted", r.isError && !txt(r).includes("FAKE"), txt(r).slice(0, 60));
+  await victim.close();
+  squat.close();
+
+  // Before login a connection may send only small messages, and only a limited number may wait to log in.
+  const c5 = await mcp("18796");
+  await sleep(300);
+  const big = await new Promise((resolve) => {
+    const ws = new WebSocket("ws://127.0.0.1:18796", { headers: { Origin: EXT_ORIGIN } });
+    ws.on("open", () => ws.send("x".repeat(20000)));
+    ws.on("close", (c) => resolve(c));
+    ws.on("error", () => {});
+  });
+  check("before login, a 20 KB message is refused (8 KB cap)", big === 1009, "close " + big);
+  const waiting = [];
+  for (let i = 0; i < 20; i++) {
+    waiting.push(await new Promise((resolve) => {
+      const ws = new WebSocket("ws://127.0.0.1:18796", { headers: { Origin: EXT_ORIGIN } });
+      const st = { ws, closed: null };
+      ws.on("open", () => resolve(st));
+      ws.on("close", (c) => { st.closed = c; resolve(st); });
+      ws.on("error", () => resolve(st));
+    }));
+  }
+  await sleep(300);
+  const turnedAway = waiting.filter((w) => w.closed === 1013).length;
+  check("no more than 16 connections may wait to log in", turnedAway === 4, turnedAway + " of 20 turned away");
+  waiting.forEach((w) => { try { w.ws.terminate(); } catch {} });
+  await sleep(300);
+  const after = await fakeExt(CODE, { port: "18796" });
+  check("the add-on can still log in after the flood", after.accepted);
+  after.ws.close();
+  await c5.close();
 }
 
 const failed = results.filter((x) => !x.ok).length;

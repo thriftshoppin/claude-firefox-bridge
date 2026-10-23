@@ -16,7 +16,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { EventEmitter } = require("node:events");
 
-const VERSION = "1.0.3";
+const VERSION = "1.0.4";
 const log = (...a) => process.stderr.write(`[firefox-mcp-connect] ${a.join(" ")}\n`);
 console.log = console.error; // a stray console.log must never corrupt the MCP stream on stdout
 console.info = console.error;
@@ -69,14 +69,18 @@ function saveCode(code) {
 // Minimal WebSocket (RFC 6455): text frames, fragmentation, ping/pong, close. Server and client.
 // =====================================================================================
 const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-const MAX_PAYLOAD = 64 * 1024 * 1024;
+const MAX_PAYLOAD = 64 * 1024 * 1024; // after login (screenshots can be large)
+const PREAUTH_MAX_PAYLOAD = 8 * 1024; // before login: the challenge/hello messages are tiny
+const MAX_UNAUTHENTICATED = 16; // simultaneous connections that haven't logged in yet
 
 class WsConn extends EventEmitter {
   constructor(socket, isClient) {
     super();
     this.socket = socket;
     this.isClient = isClient; // clients mask what they send
-    this.buf = Buffer.alloc(0);
+    this.maxPayload = isClient ? MAX_PAYLOAD : PREAUTH_MAX_PAYLOAD; // raised once the peer has logged in
+    this.chunks = []; // incoming data, joined once per frame instead of on every chunk
+    this.buffered = 0;
     this.frags = [];
     this.fragBytes = 0;
     this.readyState = 1; // 1 open, 2 closing, 3 closed
@@ -131,42 +135,59 @@ class WsConn extends EventEmitter {
     this.socket.write(Buffer.concat([header, mask, body]));
   }
 
+  // Join the first n buffered bytes into one Buffer, keeping the rest queued.
+  take(n) {
+    const all = this.chunks.length === 1 ? this.chunks[0] : Buffer.concat(this.chunks, this.buffered);
+    const rest = all.subarray(n);
+    this.chunks = rest.length ? [rest] : [];
+    this.buffered = rest.length;
+    return all.subarray(0, n);
+  }
+
+  peek(n) {
+    if (this.chunks[0].length >= n) return this.chunks[0];
+    return Buffer.concat(this.chunks, Math.min(this.buffered, Math.max(n, 14)));
+  }
+
   onData(chunk) {
-    this.buf = this.buf.length ? Buffer.concat([this.buf, chunk]) : chunk;
+    if (this.readyState === 3) return;
+    this.chunks.push(chunk);
+    this.buffered += chunk.length;
     for (;;) {
-      if (this.buf.length < 2) return;
-      const b0 = this.buf[0];
-      const b1 = this.buf[1];
+      if (this.buffered < 2) return;
+      const head = this.peek(14);
+      const b0 = head[0];
+      const b1 = head[1];
       const fin = (b0 & 0x80) !== 0;
       const opcode = b0 & 0x0f;
       const masked = (b1 & 0x80) !== 0;
       let len = b1 & 0x7f;
       let off = 2;
       if (len === 126) {
-        if (this.buf.length < 4) return;
-        len = this.buf.readUInt16BE(2);
+        if (this.buffered < 4) return;
+        len = head.readUInt16BE(2);
         off = 4;
       } else if (len === 127) {
-        if (this.buf.length < 10) return;
-        const big = this.buf.readBigUInt64BE(2);
-        if (big > BigInt(MAX_PAYLOAD)) return this.close(1009);
+        if (this.buffered < 10) return;
+        const big = head.readBigUInt64BE(2);
+        if (big > BigInt(this.maxPayload)) return this.close(1009);
         len = Number(big);
         off = 10;
       }
-      if (len > MAX_PAYLOAD) return this.close(1009);
+      if (len > this.maxPayload) return this.close(1009);
       if (!this.isClient && !masked) return this.close(1002); // browsers must mask frames sent to a server
       const maskLen = masked ? 4 : 0;
-      if (this.buf.length < off + maskLen + len) return;
+      if (this.buffered < off + maskLen + len) return;
+      const frame = this.take(off + maskLen + len);
       let payload;
       if (masked) {
-        const m = this.buf.subarray(off, off + 4);
-        const src = this.buf.subarray(off + 4, off + 4 + len);
+        const m = frame.subarray(off, off + 4);
+        const src = frame.subarray(off + 4, off + 4 + len);
         payload = Buffer.alloc(len);
         for (let i = 0; i < len; i++) payload[i] = src[i] ^ m[i & 3];
       } else {
-        payload = Buffer.from(this.buf.subarray(off, off + len));
+        payload = Buffer.from(frame.subarray(off, off + len));
       }
-      this.buf = this.buf.subarray(off + maskLen + len);
 
       if (opcode === 0x8) {
         // close
@@ -185,7 +206,7 @@ class WsConn extends EventEmitter {
       } else if (opcode === 0x0) {
         this.frags.push(payload);
         this.fragBytes += payload.length;
-        if (this.fragBytes > MAX_PAYLOAD) return this.close(1009);
+        if (this.fragBytes > this.maxPayload) return this.close(1009);
       } else {
         return this.close(1002);
       }
@@ -333,24 +354,65 @@ function startServer() {
   srv.listen(PORT, "127.0.0.1");
 }
 
+// ---- Login (protocol v2): mutual challenge-response, so the connection code never crosses the wire ----
+// server -> client: { type: "challenge", v: 2, nonce }
+// client -> server: { type: "hello", v: 2, role?, cnonce, proof: HMAC(code, "client|" + nonce + "|" + cnonce) }
+// server -> client: { type: "welcome", v: 2, proof: HMAC(code, "server|" + nonce + "|" + cnonce) }
+// The client accepts commands only after checking the server's proof, so a program squatting on the port
+// learns nothing it can replay and can't drive the browser. The "client|"/"server|" prefixes stop reflection.
+// Legacy login ({ type: "hello", token }) from add-on 1.0.0 to 1.0.3 is still accepted for the add-on role only,
+// for one transition release. Remove it once the add-on 1.0.4 is published.
+const ACCEPT_LEGACY_ADDON_LOGIN = true;
+
+function hmac(code, text) {
+  return crypto.createHmac("sha256", code).update(text).digest("hex");
+}
+
+let unauthenticated = 0;
+
 function onConnection(conn, origin) {
+  if (unauthenticated >= MAX_UNAUTHENTICATED) {
+    conn.close(1013); // try again later
+    return;
+  }
+  unauthenticated++;
   let role = null; // "extension" | "relay"
+  let counted = true;
+  const authed = () => {
+    if (counted) { counted = false; unauthenticated--; }
+    conn.maxPayload = MAX_PAYLOAD;
+  };
+  const nonce = crypto.randomBytes(32).toString("hex");
   const authTimer = setTimeout(() => { if (!role) conn.close(4001); }, 5000);
+  conn.send(JSON.stringify({ type: "challenge", v: 2, nonce }));
   conn.on("message", (data) => {
     let msg;
     try { msg = JSON.parse(data); } catch { conn.close(4002); return; }
     if (!role) {
       clearTimeout(authTimer);
-      const codeOk = TOKEN && msg && msg.type === "hello" && typeof msg.token === "string" && safeEqual(msg.token, TOKEN);
-      if (!codeOk) {
+      let ok = false;
+      let serverProof = null;
+      if (TOKEN && msg && msg.type === "hello" && msg.v === 2 &&
+          typeof msg.cnonce === "string" && /^[0-9a-f]{32,128}$/.test(msg.cnonce) &&
+          typeof msg.proof === "string" && /^[0-9a-f]{64}$/.test(msg.proof)) {
+        ok = safeEqual(msg.proof, hmac(TOKEN, `client|${nonce}|${msg.cnonce}`));
+        serverProof = hmac(TOKEN, `server|${nonce}|${msg.cnonce}`);
+      } else if (ACCEPT_LEGACY_ADDON_LOGIN && TOKEN && msg && msg.type === "hello" && msg.role !== "relay" &&
+                 typeof msg.token === "string" && origin) {
+        ok = safeEqual(msg.token, TOKEN);
+        if (ok) log("An add-on used the old login (version 1.0.3 or earlier). Update the add-on to 1.0.4.");
+      }
+      if (!ok) {
         log("Refused a connection: wrong or missing connection code.");
         conn.close(4003);
         return;
       }
+      const welcome = JSON.stringify(serverProof ? { type: "welcome", v: 2, proof: serverProof } : { type: "welcome" });
       if (msg.role === "relay") {
         if (origin) { conn.close(4003); return; } // relays are local processes, never browser pages
         role = "relay";
-        conn.send(JSON.stringify({ type: "welcome" }));
+        authed();
+        conn.send(welcome);
         log("Another bridge copy joined as a relay.");
         return;
       }
@@ -360,14 +422,17 @@ function onConnection(conn, origin) {
         return;
       }
       role = "extension";
+      authed();
       if (ext && ext !== conn) {
         log("A newer add-on connection replaces the old one.");
         try { ext.close(4000); } catch {}
         failPending(ext, "The Firefox connection was replaced by a newer one.");
       }
       ext = conn;
-      conn.send(JSON.stringify({ type: "welcome" }));
-      log(`Firefox add-on connected (add-on ${msg.version || "unknown version"}, settings from ${msg.configSource || "unknown"}).`);
+      conn.send(welcome);
+      const v = String(msg.version || "unknown version").slice(0, 32);
+      const src = String(msg.configSource || "unknown").slice(0, 32);
+      log(`Firefox add-on connected (add-on ${v}, settings from ${src}).`);
       return;
     }
     if (role === "relay") {
@@ -382,6 +447,7 @@ function onConnection(conn, origin) {
   });
   conn.on("close", () => {
     clearTimeout(authTimer);
+    if (counted) { counted = false; unauthenticated--; }
     if (ext === conn) {
       ext = null;
       failPending(conn, "Firefox disconnected before answering.");
@@ -403,14 +469,29 @@ function startRelay() {
       return;
     }
     let welcomed = false;
-    conn.send(JSON.stringify({ type: "hello", token: TOKEN, role: "relay" }));
+    let expectedServerProof = null;
+    // Something that never completes the login (for example a program squatting on the port) is dropped and retried.
+    const loginTimer = setTimeout(() => { if (!welcomed) conn.close(4001); }, 5000);
+    loginTimer.unref();
     conn.on("message", (data) => {
       let msg;
       try { msg = JSON.parse(data); } catch { return; }
-      if (msg.type === "welcome") {
-        welcomed = true;
-        upstream = conn;
-        note("Relay: connected to the primary bridge.");
+      if (!welcomed) {
+        if (msg.type === "challenge" && msg.v === 2 && typeof msg.nonce === "string" && !expectedServerProof && TOKEN) {
+          const cnonce = crypto.randomBytes(32).toString("hex");
+          expectedServerProof = hmac(TOKEN, `server|${msg.nonce}|${cnonce}`);
+          conn.send(JSON.stringify({ type: "hello", v: 2, role: "relay", cnonce, proof: hmac(TOKEN, `client|${msg.nonce}|${cnonce}`) }));
+          return;
+        }
+        // Accept the primary only if it proves it knows the code; otherwise it may be a program squatting on the port.
+        if (msg.type === "welcome" && expectedServerProof && typeof msg.proof === "string" && safeEqual(msg.proof, expectedServerProof)) {
+          welcomed = true;
+          upstream = conn;
+          note("Relay: connected to the primary bridge.");
+          return;
+        }
+        if (msg.type === "welcome") note(`Port ${PORT} is held by something that couldn't prove it knows the connection code. Retrying.`);
+        conn.close(4003);
         return;
       }
       if (msg.id != null) settle(msg);
@@ -711,7 +792,7 @@ async function handleMessage(msg) {
       }
       default:
         if (method.startsWith("notifications/")) return;
-        if (isRequest) replyError(id, -32601, `Method not found: ${method}`);
+        if (isRequest) replyError(id, -32601, `Method not found: ${method.length > 100 ? method.slice(0, 100) + "…" : method}`);
     }
   } catch (e) {
     if (isRequest) replyError(id, -32603, e.message || String(e));

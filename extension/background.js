@@ -53,6 +53,17 @@ function scheduleReconnect() {
   backoff = Math.min(backoff * 2, 10000);
 }
 
+function randomHex(bytes) {
+  return Array.from(crypto.getRandomValues(new Uint8Array(bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function hmacHex(key, text) {
+  const enc = new TextEncoder();
+  const k = await crypto.subtle.importKey("raw", enc.encode(key), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", k, enc.encode(text));
+  return Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 function connect() {
   clearTimeout(reconnectTimer);
   reconnectTimer = null;
@@ -68,24 +79,43 @@ function connect() {
     return;
   }
   ws = s;
-  s.onopen = () => s.send(JSON.stringify({ type: "hello", token: settings.token, configSource, version: browser.runtime.getManifest().version }));
-  s.onmessage = (ev) => {
+  // Login (protocol v2). Nothing is sent until the bridge's challenge arrives, the connection code itself is never
+  // sent, and commands are accepted only after the bridge proves it knows the code. A program squatting on the
+  // port therefore learns nothing it can reuse and can't drive the browser.
+  let authed = false;
+  let expectedProof = null;
+  s.onmessage = async (ev) => {
     let msg;
     try { msg = JSON.parse(ev.data); } catch (e) { return; }
-    if (msg.type === "welcome") {
-      connected = true;
-      backoff = 1000;
-      lastError = "";
-      setBadge();
+    if (!authed) {
+      if (msg.type === "challenge" && msg.v === 2 && typeof msg.nonce === "string" && /^[0-9a-f]{32,128}$/.test(msg.nonce) && !expectedProof) {
+        const cnonce = randomHex(32);
+        const token = settings.token;
+        expectedProof = await hmacHex(token, `server|${msg.nonce}|${cnonce}`);
+        const proof = await hmacHex(token, `client|${msg.nonce}|${cnonce}`);
+        if (ws === s) s.send(JSON.stringify({ type: "hello", v: 2, cnonce, proof, configSource, version: browser.runtime.getManifest().version }));
+        return;
+      }
+      if (msg.type === "welcome" && expectedProof && typeof msg.proof === "string" && msg.proof === expectedProof) {
+        authed = true;
+        connected = true;
+        backoff = 1000;
+        lastError = "";
+        setBadge();
+        return;
+      }
+      // Anything else before a verified welcome (including commands) means this isn't the real bridge.
+      lastError = "Something on the port couldn't prove it knows the connection code. Close other programs using it, or change the port.";
+      try { s.close(4003); } catch (e) { /* ignore */ }
       return;
     }
-    if (msg.id != null && msg.cmd) handleRequest(s, msg);
+    if (msg.id != null && typeof msg.cmd === "string") handleRequest(s, msg);
   };
   s.onclose = (ev) => {
     if (ws !== s) return;
     ws = null;
     connected = false;
-    if (ev.code === 4003) lastError = "Bridge rejected the token.";
+    if (ev.code === 4003 && !lastError.startsWith("Something on the port")) lastError = "The bridge didn't accept the connection code. Copy it again and give it to Claude.";
     else if (ev.code === 4000) lastError = "Replaced by another connection.";
     setBadge();
     scheduleReconnect();
@@ -306,7 +336,7 @@ for (const c of ["read_page", "get_page_text", "find", "click", "type", "key", "
 
 function summarize(cmd, args, result) {
   const a = { ...args };
-  if (typeof a.text === "string") a.text = a.text.length > 40 ? a.text.slice(0, 40) + "…" : a.text;
+  if (typeof a.text === "string") a.text = `(${a.text.length} characters)`; // never store what was typed
   let s = JSON.stringify(a);
   if (s === "{}") s = "";
   if (cmd === "screenshot" && result) s += ` → ${result.width}x${result.height}`;
@@ -321,7 +351,7 @@ async function handleRequest(sock, msg) {
     url = t ? t.url : "";
   } catch (e) { /* ignore */ }
   try {
-    const fn = commands[cmd];
+    const fn = Object.hasOwn(commands, cmd) ? commands[cmd] : null;
     if (!fn) throw new Error(`Unknown command: ${cmd}`);
     const result = await fn(args);
     audit({ time: new Date().toISOString(), cmd, url, summary: summarize(cmd, args, result) });

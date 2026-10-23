@@ -67,14 +67,19 @@ The plugin also includes a skill that tells Claude to work in a new tab, to trea
 ## Safety
 
 - **Local only.** The bridge listens on 127.0.0.1, so nothing outside your computer can reach it.
-- **Connection code.** Only a connection that presents your code is accepted. The code is random and 64 characters long, and the add-on can make a new one at any time (Options > New code).
+- **Connection code, never sent.** The add-on and the bridge log in with a challenge-response: each proves it knows your code without sending it, and the add-on obeys commands only after the bridge has proved itself. So even a program that grabs the port first learns nothing useful and can't drive your browser. The code is random and 64 characters long, and the add-on can make a new one at any time (Options > New code).
 - **Firefox add-ons only.** The bridge refuses connections from web pages, because only a `moz-extension://` origin may connect as the add-on.
 - **Kill switch.** The checkbox in the add-on's popup disconnects Claude immediately.
-- **Action log.** The popup shows the last 20 of up to 300 logged actions. The log stays on your computer.
-- **Blocked fields.** Typing into password, credit-card (`autocomplete="cc-*"`) and one-time-code fields is refused.
+- **Action log.** The popup shows the last 20 of up to 300 logged actions. The log stays on your computer, and it records how many characters Claude typed, never the text itself.
+- **Blocked fields.** Typing into password, payment-card and one-time-code fields is refused wherever the add-on can detect them: by field type, autocomplete hints, password-style masking, or names and labels such as "card number", "CVV" or "PIN". A page can still disguise a field, so Claude is also told to leave these to you.
 - **Blocked pages.** Firefox's own pages (`about:`, `moz-extension:`, `view-source:`) and addons.mozilla.org are refused.
 
+Security audit log: [SECURITY-AUDIT.md](SECURITY-AUDIT.md). Changes: [CHANGELOG.md](CHANGELOG.md). Report a vulnerability: [SECURITY.md](SECURITY.md).
+
 ## Privacy
+
+The welcome page copies your connection code to the clipboard. If you use Windows clipboard history or cloud clipboard sync, the code may stay there; you can clear it from the clipboard history (Win+V).
+
 
 Neither part collects anything or sends anything to its authors or any third party. Page content Claude reads goes to the Claude app that asked for it, as part of your conversation. Read the full [privacy policy](https://thriftshoppin.github.io/claude-firefox-bridge/privacy), also in [docs/privacy.md](docs/privacy.md).
 
@@ -105,7 +110,7 @@ Neither part collects anything or sends anything to its authors or any third par
 | `build-mcpb.ps1`, `sign.ps1`, `fetch-signed.ps1` | Build the `.mcpb`; sign and download the add-on through Mozilla's API |
 | `amo/` | Notes for Mozilla's add-on reviewers |
 
-`test/e2e.mjs` runs a live check in a throwaway Firefox profile with `web-ext run`. `test/ffcall.mjs` makes one tool call through a running bridge from a terminal.
+`test/e2e.mjs` runs a live check in a throwaway Firefox profile with `web-ext run`. `test/security-e2e.mjs` attacks the real add-on there with a malicious page and a program squatting on the port. `test/ffcall.mjs` makes one tool call through a running bridge from a terminal.
 
 ## How this was built
 

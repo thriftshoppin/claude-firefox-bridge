@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Claude MCP Connect",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Lets Claude (Claude Code, Cowork and the Claude desktop app) control this browser through a local, code-protected connection. Unofficial; not affiliated with Anthropic or Mozilla.",
   "browser_specific_settings": {
     "gecko": {
