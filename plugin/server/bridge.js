@@ -176,11 +176,11 @@ class WsConn extends EventEmitter {
   }
 }
 
-// Connect to ws://127.0.0.1:<port>/ as a client (used by relay copies).
+// Connect to the primary bridge on this computer (127.0.0.1, port PORT) as a WebSocket client (used by relay copies).
 function wsConnect(port, callback) {
   const sock = net.connect(port, "127.0.0.1");
-  const key = crypto.randomBytes(16).toString("base64");
-  const expected = crypto.createHash("sha1").update(key + WS_GUID).digest("base64");
+  const handshakeNonce = crypto.randomBytes(16).toString("base64");
+  const expected = crypto.createHash("sha1").update(handshakeNonce + WS_GUID).digest("base64");
   let head = Buffer.alloc(0);
   let settled = false;
   const finish = (err, ws) => {
@@ -191,7 +191,7 @@ function wsConnect(port, callback) {
   sock.on("connect", () => {
     sock.write(
       `GET / HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n` +
-        `Sec-WebSocket-Key: ${key}\r\nSec-WebSocket-Version: 13\r\n\r\n`,
+        `Sec-WebSocket-Key: ${handshakeNonce}\r\nSec-WebSocket-Version: 13\r\n\r\n`,
     );
   });
   const onHandshake = (d) => {
@@ -266,17 +266,17 @@ function startServer() {
   });
   srv.on("upgrade", (req, socket) => {
     const origin = req.headers.origin;
-    const key = req.headers["sec-websocket-key"];
+    const handshakeNonce = req.headers["sec-websocket-key"];
     if (origin && !/^moz-extension:\/\//i.test(origin)) {
       log(`Refused a connection from ${origin}: only the Firefox add-on may connect.`);
       socket.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
       return;
     }
-    if (!key || String(req.headers.upgrade || "").toLowerCase() !== "websocket") {
+    if (!handshakeNonce || String(req.headers.upgrade || "").toLowerCase() !== "websocket") {
       socket.end("HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n");
       return;
     }
-    const accept = crypto.createHash("sha1").update(key + WS_GUID).digest("base64");
+    const accept = crypto.createHash("sha1").update(handshakeNonce + WS_GUID).digest("base64");
     socket.write(
       `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
     );
@@ -285,7 +285,7 @@ function startServer() {
   });
   srv.on("listening", () => {
     server = srv;
-    note(`Primary: listening on ws://127.0.0.1:${PORT}`);
+    note(`Primary: listening on 127.0.0.1, port ${PORT}`);
   });
   srv.on("error", (e) => {
     if (server === srv) {
