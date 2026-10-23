@@ -1,29 +1,29 @@
-# TabRelay: let Claude use your Firefox
+# Firefox MCP Connect: let Claude use your Firefox
 
-TabRelay lets Claude work in the Firefox you already use, with your own sign-ins, cookies, VPN and ad blocker. Claude can list and switch tabs, open pages, read them, take screenshots, click, type, press keys and scroll. You stay in control: there's an on/off switch, a log of every action, and password and payment fields are off limits.
+Firefox MCP Connect lets Claude work in the Firefox you already use, with your own sign-ins, cookies, VPN and ad blocker. Claude can list and switch tabs, open pages, read them, take screenshots, click, type, press keys and scroll. You stay in control: there's an on/off switch, a log of every action, and password and payment fields are off limits.
 
 It has two parts that talk to each other only on your computer:
 
-- **The TabRelay add-on for Firefox**, which carries out the actions.
-- **The TabRelay plugin for Claude**, which gives Claude the browser tools. It works in Claude Code and in Cowork sessions on your computer. For chats in the Claude desktop app, use the desktop extension instead (see below).
+- **The Claude MCP Connect add-on for Firefox**, which carries out the actions.
+- **The Firefox MCP Connect plugin for Claude**, which gives Claude the browser tools. It works in Claude Code and in Cowork sessions on your computer. For chats in the Claude desktop app, use the desktop extension instead (see below).
 
 > An independent community project. Not affiliated with, endorsed by, or supported by Anthropic or Mozilla.
-> "Claude" is a trademark of Anthropic, and "Firefox" is a trademark of the Mozilla Foundation. They're used here only to say what TabRelay works with.
+> "Claude" is a trademark of Anthropic, and "Firefox" is a trademark of the Mozilla Foundation. They're used here only to say what this project works with.
 
 ## Install
 
 You need Firefox 115 or newer, and Node.js 18 or newer on your computer, because the plugin runs a small local program with `node`.
 
-1. **Firefox add-on:** install TabRelay from addons.mozilla.org, or open the signed `.xpi` from the [latest release](https://github.com/thriftshoppin/claude-firefox-bridge/releases) in Firefox. Click **Add**. Firefox asks whether to allow it in private windows. That's off by default, and you can leave it off.
-2. **Copy the connection code:** a welcome page opens and copies the code for you. You can copy it again any time: click the TabRelay icon in Firefox's toolbar, then **Copy connection code**. If the icon is hidden, open the puzzle-piece Extensions menu.
-3. **Claude plugin:** in Claude, go to **Customize > Plugins > Add > Add marketplace** and enter `thriftshoppin/claude-firefox-bridge`, then install **TabRelay**. In Claude Code you can run this instead:
+1. **Firefox add-on:** install **Claude MCP Connect** from addons.mozilla.org, or open the signed `.xpi` from the [latest release](https://github.com/thriftshoppin/claude-firefox-bridge/releases) in Firefox. Click **Add**. Firefox asks whether to allow it in private windows. That's off by default, and you can leave it off.
+2. **Copy the connection code:** a welcome page opens and copies the code for you. You can copy it again any time: click the Claude MCP Connect icon in Firefox's toolbar, then **Copy connection code**. If the icon is hidden, open the puzzle-piece Extensions menu.
+3. **Claude plugin:** in Claude, go to **Customize > Plugins > Add > Add marketplace** and enter `thriftshoppin/claude-firefox-bridge`, then install **Firefox MCP Connect**. In Claude Code you can run this instead:
    ```
-   /plugin install tab-relay --marketplace thriftshoppin/claude-firefox-bridge
+   /plugin install firefox-mcp-connect --marketplace thriftshoppin/claude-firefox-bridge
    ```
 4. **Paste the code** when Claude asks for the **Connection code from Firefox**, then save.
-5. The TabRelay icon in Firefox turns green **ON**. Ask Claude something like "open my Firefox and find today's weather".
+5. The Claude MCP Connect icon in Firefox turns green **ON**. Ask Claude something like "open my Firefox and find today's weather".
 
-**Claude desktop app chats:** install the one-click desktop extension `tabrelay-<version>.mcpb` from the [latest release](https://github.com/thriftshoppin/claude-firefox-bridge/releases). Double-click it, click **Install**, and paste the same connection code.
+**Claude desktop app chats:** install the one-click desktop extension `firefox-mcp-connect-<version>.mcpb` from the [latest release](https://github.com/thriftshoppin/claude-firefox-bridge/releases). Double-click it, click **Install**, and paste the same connection code.
 
 ## How it works
 
@@ -31,10 +31,10 @@ You need Firefox 115 or newer, and Node.js 18 or newer on your computer, because
 Claude (plugin or desktop extension)
    |  starts, over stdio
    v
-TabRelay bridge  (server/bridge.js, MCP server "firefox")
+MCP Connect bridge  (server/bridge.js, MCP server "firefox")
    |  WebSocket on 127.0.0.1:8765, connection code required
    v
-TabRelay add-on in Firefox  ->  acts on the tab you're working in
+Claude MCP Connect add-on in Firefox  ->  acts on the tab you're working in
 ```
 
 Claude starts the bridge when it needs it and stops it when it closes. There's nothing to keep running. The add-on reconnects quietly until a bridge is there. If several Claude apps run at once, they share one connection: the first bridge holds it, and the others pass their calls through it.
@@ -73,11 +73,11 @@ The plugin also includes a skill that tells Claude to work in a new tab, to trea
 
 ## Privacy
 
-TabRelay collects nothing and sends nothing to its authors or any third party. Page content Claude reads goes to the Claude app that asked for it, as part of your conversation. Read the full [privacy policy](https://thriftshoppin.github.io/claude-firefox-bridge/privacy), also in [docs/privacy.md](docs/privacy.md).
+Neither part collects anything or sends anything to its authors or any third party. Page content Claude reads goes to the Claude app that asked for it, as part of your conversation. Read the full [privacy policy](https://thriftshoppin.github.io/claude-firefox-bridge/privacy), also in [docs/privacy.md](docs/privacy.md).
 
 ## Troubleshooting
 
-- **Claude says Firefox isn't connected.** Check that Firefox is open and the TabRelay icon shows **ON**. If it shows **…**, the codes probably don't match: copy the code again from the icon's popup and paste it into the plugin's settings in Claude.
+- **Claude says Firefox isn't connected.** Check that Firefox is open and the Claude MCP Connect icon shows **ON**. If it shows **…**, the codes probably don't match: copy the code again from the icon's popup and paste it into the plugin's settings in Claude.
 - **The icon shows OFF.** The kill switch is off. Open the popup and tick **Bridge enabled**.
 - **Another program uses port 8765.** Pick another port, such as 8777, in both the add-on's Options and the plugin's settings.
 - **`node` not found.** Install Node.js 18 or newer from nodejs.org, then restart Claude.

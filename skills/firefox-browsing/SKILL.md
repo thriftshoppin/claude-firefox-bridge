@@ -1,15 +1,15 @@
 ---
 name: firefox-browsing
-description: Use the user's own Firefox through the TabRelay tools. Use when the user asks Claude to look something up in their browser, open or read a web page, check a site they're signed in to, fill in a web form, compare tabs, or do anything in Firefox.
+description: Use the user's own Firefox through the Firefox MCP Connect tools. Use when the user asks Claude to look something up in their browser, open or read a web page, check a site they're signed in to, fill in a web form, compare tabs, or do anything in Firefox.
 ---
 
-# Using Firefox through TabRelay
+# Using Firefox through Firefox MCP Connect
 
 The `firefox` tools control the user's real Firefox, with their sign-ins, cookies and extensions. Act the way a careful person would at someone else's computer.
 
 ## Before you start
 
-1. Call `tabs_list` to see what's open. If it says Firefox isn't connected, tell the user to open Firefox and check that the TabRelay icon in the toolbar shows **ON**. If it doesn't, they should copy the connection code from the icon's popup into this plugin's settings in Claude.
+1. Call `tabs_list` to see what's open. If it says Firefox isn't connected, tell the user to open Firefox and check that the Claude MCP Connect icon in the toolbar shows **ON**. If it doesn't, they should copy the connection code from the icon's popup into this plugin's settings in Claude.
 2. Do the work in a new tab with `tab_open`, rather than taking over a tab the user is reading. Close the tabs you opened when you're done, unless the user wants to keep them.
 
 ## Reading pages

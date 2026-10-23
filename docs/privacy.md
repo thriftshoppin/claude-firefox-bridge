@@ -1,24 +1,24 @@
 ---
-title: TabRelay privacy policy
+title: MCP Connect privacy policy
 permalink: /privacy
 ---
 
-# TabRelay privacy policy
+# Privacy policy: Claude MCP Connect and Firefox MCP Connect
 
 _Last updated: October 23, 2026_
 
-TabRelay is two pieces of software that run on your own computer: the **TabRelay add-on** for Firefox, and the **TabRelay bridge**, which Claude starts as a plugin or desktop extension. This policy covers both. TabRelay is an independent community project, not affiliated with Anthropic or Mozilla.
+MCP Connect is two pieces of software that run on your own computer: the **Claude MCP Connect** add-on for Firefox, and the **Firefox MCP Connect** plugin or desktop extension for Claude, which runs a small local program called the bridge. This policy covers both. MCP Connect is an independent community project, not affiliated with Anthropic or Mozilla.
 
 ## The short version
 
-TabRelay collects nothing and sends nothing to its authors or to any third party. It has no servers, analytics, telemetry, ads or tracking. Everything happens on your computer, between the Claude app you use and your Firefox.
+MCP Connect collects nothing and sends nothing to its authors or to any third party. It has no servers, analytics, telemetry, ads or tracking. Everything happens on your computer, between the Claude app you use and your Firefox.
 
-## What TabRelay handles, and where it goes
+## What MCP Connect handles, and where it goes
 
 When you ask Claude to use your browser, Claude sends commands such as "open this page" or "click this button" to the bridge. The bridge passes them to the add-on over a connection on your own computer (127.0.0.1), and the add-on carries them out in Firefox. Results go back the same way to Claude. These results can include tab titles and addresses, page text, screenshots, and the elements on a page.
 
 - **To Claude:** results go to the Claude app that asked for them, and from there to Anthropic as part of your conversation, the same as anything else you share with Claude. Anthropic's handling of your conversations is covered by [Anthropic's privacy policy](https://www.anthropic.com/legal/privacy). Ask Claude to use your browser only for pages you're comfortable sharing in a conversation.
-- **To anyone else:** nothing. TabRelay doesn't send data to its authors, to Mozilla, or to any other service.
+- **To anyone else:** nothing. MCP Connect doesn't send data to its authors, to Mozilla, or to any other service.
 
 ## What is stored, and where
 
@@ -35,11 +35,11 @@ Data stays only as long as the add-on is installed. Removing the add-on from Fir
 
 ## Sensitive fields
 
-TabRelay refuses to type into password, credit-card and one-time-code fields, so Claude can't enter those for you.
+MCP Connect refuses to type into password, credit-card and one-time-code fields, so Claude can't enter those for you.
 
 ## Children
 
-TabRelay isn't directed at children and collects no personal information from anyone.
+MCP Connect isn't directed at children and collects no personal information from anyone.
 
 ## Changes
 

@@ -1,8 +1,8 @@
 {
-  "name": "tab-relay",
-  "displayName": "TabRelay (Firefox control)",
+  "name": "firefox-mcp-connect",
+  "displayName": "Firefox MCP Connect",
   "version": "1.0.3",
-  "description": "Let Claude use your own Firefox: list and switch tabs, open pages, read them, take screenshots, click, type and scroll, with your existing sign-ins. Needs the free TabRelay Firefox add-on. Unofficial community project.",
+  "description": "Let Claude use your own Firefox: list and switch tabs, open pages, read them, take screenshots, click, type and scroll, with your existing sign-ins. Needs the free Claude MCP Connect Firefox add-on. Unofficial community project.",
   "author": { "name": "thriftshoppin", "url": "https://github.com/thriftshoppin" },
   "homepage": "https://github.com/thriftshoppin/claude-firefox-bridge",
   "repository": "https://github.com/thriftshoppin/claude-firefox-bridge",
@@ -16,14 +16,14 @@
     "connection_code": {
       "type": "string",
       "title": "Connection code from Firefox",
-      "description": "Install the TabRelay add-on in Firefox first. Then click the TabRelay icon in Firefox's toolbar (look in the puzzle-piece Extensions menu if it's hidden), click 'Copy connection code', and paste it here.",
+      "description": "Install the Claude MCP Connect add-on in Firefox first. Then click the Claude MCP Connect icon in Firefox's toolbar (look in the puzzle-piece Extensions menu if it's hidden), click 'Copy connection code', and paste it here.",
       "sensitive": true,
       "required": true
     },
     "port": {
       "type": "number",
       "title": "Port",
-      "description": "Leave at 8765 unless another program uses it. It must match the Port in the TabRelay add-on's Options.",
+      "description": "Leave at 8765 unless another program uses it. It must match the Port in the Claude MCP Connect add-on's Options.",
       "default": 8765,
       "min": 1024,
       "max": 65535

@@ -1,5 +1,5 @@
 {
-  "name": "tab-relay-tests",
+  "name": "mcp-connect-tests",
   "private": true,
   "type": "module",
   "description": "Development tests for the TabRelay bridge. Not needed to use the plugin.",

@@ -1,4 +1,4 @@
-# Builds dist\tabrelay-<version>.mcpb, the one-click Claude desktop extension.
+# Builds dist\firefox-mcp-connect-<version>.mcpb, the one-click Claude desktop extension.
 # The bridge has no dependencies, so the bundle is just the manifest, the icon and server\bridge.js.
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
@@ -18,7 +18,7 @@ Step 'stage files' {
   Copy-Item (Join-Path $root 'server\bridge.js') (Join-Path $stage 'server\bridge.js')
 }
 Step 'validate manifest' { npx -y @anthropic-ai/mcpb@2.1.2 validate (Join-Path $stage 'manifest.json') }
-$out = Join-Path $root "dist\tabrelay-$version.mcpb"
+$out = Join-Path $root "dist\firefox-mcp-connect-$version.mcpb"
 Step 'pack' { npx -y @anthropic-ai/mcpb@2.1.2 pack $stage $out }
 Remove-Item $stage -Recurse -Force
 Write-Host "Built: $out" -ForegroundColor Green

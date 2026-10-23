@@ -1,22 +1,22 @@
-# addons.mozilla.org listing: TabRelay
+# addons.mozilla.org listing: Claude MCP Connect
 
 Paste these into the listing form when submitting a LISTED version. Don't submit until the user approves.
 
 ## Name
-TabRelay
+Claude MCP Connect
 
 ## Add-on URL slug
-tabrelay
+claude-mcp-connect
 
 ## Summary (250 characters max)
 Let Claude, the AI assistant, use this browser through a local, code-protected connection: open and read pages, take screenshots, click and type. Unofficial; not affiliated with Anthropic or Mozilla.
 
 ## Description
-TabRelay connects Firefox to Claude, so Claude can work in the browser you already use, with your own sign-ins.
+Claude MCP Connect connects Firefox to Claude, so Claude can work in the browser you already use, with your own sign-ins.
 
 **What it does**
 - Lets Claude list and switch tabs, open pages, read their text, take screenshots, click, type, press keys and scroll.
-- Works with the TabRelay plugin for Claude Code and Cowork, or the TabRelay desktop extension for the Claude desktop app. Both are free and open source: https://github.com/thriftshoppin/claude-firefox-bridge
+- Works with the Firefox MCP Connect plugin for Claude Code and Cowork, or the Firefox MCP Connect desktop extension for the Claude desktop app. Both are free and open source: https://github.com/thriftshoppin/claude-firefox-bridge
 
 **You stay in control**
 - It connects only to a program on your own computer (127.0.0.1), never to the internet.
@@ -26,9 +26,9 @@ TabRelay connects Firefox to Claude, so Claude can work in the browser you alrea
 - It refuses to type into password, credit-card and one-time-code fields.
 - It doesn't run in private windows unless you allow it.
 
-**Privacy:** TabRelay collects and sends nothing to its authors or any third party. Privacy policy: https://thriftshoppin.github.io/claude-firefox-bridge/privacy
+**Privacy:** Claude MCP Connect collects and sends nothing to its authors or any third party. Privacy policy: https://thriftshoppin.github.io/claude-firefox-bridge/privacy
 
-TabRelay is an independent community project, not affiliated with, endorsed by or supported by Anthropic or Mozilla. "Claude" is a trademark of Anthropic.
+Claude MCP Connect is an independent community project, not affiliated with, endorsed by or supported by Anthropic or Mozilla. "Claude" is a trademark of Anthropic.
 
 ## Categories
 - Firefox: Other

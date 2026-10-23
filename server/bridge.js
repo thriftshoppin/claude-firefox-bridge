@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// TabRelay bridge: an MCP server (stdio) that lets Claude control the user's Firefox through the TabRelay add-on.
+// MCP Connect bridge: an MCP server (stdio) that lets Claude control the user's Firefox through the Claude MCP Connect add-on.
 //
 // - No third-party dependencies. Needs Node.js 18 or newer.
 // - stdout carries only MCP JSON-RPC messages. All logging goes to stderr.
@@ -14,7 +14,7 @@ const crypto = require("node:crypto");
 const { EventEmitter } = require("node:events");
 
 const VERSION = "1.0.3";
-const log = (...a) => process.stderr.write(`[tab-relay] ${a.join(" ")}\n`);
+const log = (...a) => process.stderr.write(`[firefox-mcp-connect] ${a.join(" ")}\n`);
 console.log = console.error; // a stray console.log must never corrupt the MCP stream on stdout
 console.info = console.error;
 
@@ -28,10 +28,10 @@ const TOKEN = (() => {
 })();
 const CALL_TIMEOUT_MS = 30_000;
 const NOT_CONNECTED =
-  "Firefox isn't connected. Check that Firefox is open, the TabRelay add-on's toolbar badge is on, " +
+  "Firefox isn't connected. Check that Firefox is open, the Claude MCP Connect add-on's toolbar badge is on, " +
   "and the connection code in Claude matches the one in the add-on (toolbar icon > Copy connection code).";
 const NO_CODE =
-  "No connection code is set. In Firefox, click the TabRelay toolbar icon, click 'Copy connection code', " +
+  "No connection code is set. In Firefox, click the Claude MCP Connect toolbar icon, click 'Copy connection code', " +
   "and paste it into this plugin's settings in Claude.";
 
 if (!TOKEN) log("No connection code configured; all connections will be refused.");
@@ -262,7 +262,7 @@ function startServer() {
   if (server || upstream) return;
   const srv = http.createServer((req, res) => {
     res.writeHead(426, { "Content-Type": "text/plain" });
-    res.end("TabRelay bridge: WebSocket connections only.\n");
+    res.end("MCP Connect bridge: WebSocket connections only.\n");
   });
   srv.on("upgrade", (req, socket) => {
     const origin = req.headers.origin;
@@ -617,7 +617,7 @@ async function handleMessage(msg) {
         return reply(id, {
           protocolVersion,
           capabilities: { tools: { listChanged: false } },
-          serverInfo: { name: "firefox", title: "TabRelay (Firefox)", version: VERSION },
+          serverInfo: { name: "firefox", title: "Firefox MCP Connect", version: VERSION },
           instructions: INSTRUCTIONS,
         });
       }
@@ -668,4 +668,4 @@ process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
 
 startServer();
-log(`TabRelay bridge ${VERSION} ready on stdio.`);
+log(`MCP Connect bridge ${VERSION} ready on stdio.`);

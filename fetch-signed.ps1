@@ -32,7 +32,7 @@ $v = $list.results | Where-Object { $_.version -eq $Version } | Select-Object -F
 Result ([bool]$v) "AMO has version $Version (channel $($v.channel))"
 Result ($v.file.status -eq 'public') "version $Version is approved and signed (file status: $($v.file.status))"
 
-$out = Join-Path $root "dist\tabrelay-$Version.xpi"
+$out = Join-Path $root "dist\claude-mcp-connect-$Version.xpi"
 New-Item -ItemType Directory -Force (Split-Path $out) | Out-Null
 Invoke-WebRequest -Uri $v.file.url -Headers @{ Authorization = (NewJwt) } -OutFile $out -UseBasicParsing
 Result ((Get-Item $out).Length -gt 1000) "downloaded $out ($((Get-Item $out).Length) bytes)"

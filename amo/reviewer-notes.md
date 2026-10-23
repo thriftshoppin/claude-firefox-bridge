@@ -1,6 +1,6 @@
-# Notes to reviewer: TabRelay
+# Notes to reviewer: Claude MCP Connect
 
-TabRelay is a bridge between Firefox and a local program, the TabRelay bridge. The user's AI assistant, Claude, starts the bridge on the same computer. The add-on opens a WebSocket only to ws://127.0.0.1:<port> (default 8765, set in Options) and executes the browser commands the bridge sends. It never contacts a remote server.
+Claude MCP Connect is a bridge between Firefox and a local program, the MCP Connect bridge. The user's AI assistant, Claude, starts the bridge on the same computer. The add-on opens a WebSocket only to ws://127.0.0.1:<port> (default 8765, set in Options) and executes the browser commands the bridge sends. It never contacts a remote server.
 
 ## Source
 All code is plain, unminified JavaScript. There's no build step: the files in the submitted package are the source.
