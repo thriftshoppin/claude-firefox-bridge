@@ -1,0 +1,13 @@
+{
+  "name": "tab-relay-tests",
+  "private": true,
+  "type": "module",
+  "description": "Development tests for the TabRelay bridge. Not needed to use the plugin.",
+  "scripts": {
+    "test": "node stdio-test.mjs && node selftest.mjs"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "ws": "^8.22.0"
+  }
+}

@@ -1,22 +1,47 @@
 {
   "manifest_version": 2,
-  "name": "Claude Browser Bridge",
-  "version": "1.0.2",
-  "description": "Lets the local Claude desktop app drive this browser through a localhost MCP bridge.",
+  "name": "TabRelay",
+  "version": "1.0.3",
+  "description": "Lets Claude (Claude Code, Cowork and the Claude desktop app) control this browser through a local, code-protected connection. Unofficial; not affiliated with Anthropic or Mozilla.",
   "browser_specific_settings": {
     "gecko": {
       "id": "claude-ff-bridge@sysadmin.local",
       "strict_min_version": "115.0",
-      "data_collection_permissions": { "required": ["none"] }
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
     }
   },
-  "permissions": ["tabs", "activeTab", "<all_urls>", "storage", "clipboardWrite"],
-  "background": { "scripts": ["background.js"], "persistent": true },
-  "browser_action": {
-    "default_title": "Claude Browser Bridge",
-    "default_popup": "popup.html",
-    "default_icon": { "48": "icons/icon-48.png", "96": "icons/icon-96.png" }
+  "permissions": [
+    "tabs",
+    "activeTab",
+    "<all_urls>",
+    "storage",
+    "clipboardWrite"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ],
+    "persistent": true
   },
-  "options_ui": { "page": "options.html", "open_in_tab": false },
-  "icons": { "48": "icons/icon-48.png", "96": "icons/icon-96.png" }
+  "browser_action": {
+    "default_title": "TabRelay",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "48": "icons/icon-48.png",
+      "96": "icons/icon-96.png"
+    }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  },
+  "homepage_url": "https://github.com/thriftshoppin/claude-firefox-bridge"
 }

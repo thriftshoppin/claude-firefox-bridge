@@ -20,7 +20,7 @@ Step 'web-ext sign (unlisted)' { web-ext sign --source-dir "$root\extension" --a
 $xpi = Get-ChildItem $out -Filter *.xpi | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $xpi) { Write-Host 'FAIL: no .xpi produced' -ForegroundColor Red; exit 1 }
 $version = (Get-Content "$root\extension\manifest.json" -Raw | ConvertFrom-Json).version
-$named = Join-Path $out "claude-browser-bridge-$version.xpi"
+$named = Join-Path $out "tabrelay-$version.xpi"
 Copy-Item $xpi.FullName $named -Force
 Write-Host "Signed: $named" -ForegroundColor Green
 Start-Process firefox $named

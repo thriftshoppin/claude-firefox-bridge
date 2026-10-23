@@ -1,87 +1,109 @@
-# Claude Browser Bridge (for Firefox)
+# TabRelay: let Claude use your Firefox
 
-Lets Claude drive your real Firefox through MCP: tabs, navigation, screenshots, reading pages, clicking, typing, keys and scrolling. It keeps your own sign-ins, VPN and ad blocker.
-It works from the Claude desktop app (chat, Cowork and Code) and from Claude Code.
+TabRelay lets Claude work in the Firefox you already use, with your own sign-ins, cookies, VPN and ad blocker. Claude can list and switch tabs, open pages, read them, take screenshots, click, type, press keys and scroll. You stay in control: there's an on/off switch, a log of every action, and password and payment fields are off limits.
+
+It has two parts that talk to each other only on your computer:
+
+- **The TabRelay add-on for Firefox**, which carries out the actions.
+- **The TabRelay plugin for Claude**, which gives Claude the browser tools. It works in Claude Code and in Cowork sessions on your computer. For chats in the Claude desktop app, use the desktop extension instead (see below).
 
 > An independent community project. Not affiliated with, endorsed by, or supported by Anthropic or Mozilla.
-> "Claude" is a trademark of Anthropic, and "Firefox" is a trademark of the Mozilla Foundation. They're used here only to say what this works with.
+> "Claude" is a trademark of Anthropic, and "Firefox" is a trademark of the Mozilla Foundation. They're used here only to say what TabRelay works with.
 
-```
-Claude app / Claude Code --stdio--> bridge/bridge.js (MCP server "firefox")
-                                         |  WebSocket on 127.0.0.1:8765, token auth
-                                Firefox add-on "Claude Browser Bridge"
-                                         |
-                                content.js injected into a tab on demand
-```
+## Install
 
-There is no server to keep running. Claude starts `bridge.js` itself and stops it on quit. The add-on retries quietly, every 1 to 10 seconds, until a bridge is there.
+You need Firefox 115 or newer, and Node.js 18 or newer on your computer, because the plugin runs a small local program with `node`.
 
-## Several Claude surfaces at once
-The desktop app starts one bridge copy for chats and another for Cowork and Code sessions. Claude Code may start a third.
-The first copy to take port 8765 is the **primary** and holds the Firefox connection. Every later copy joins it as a **relay** and passes its calls through.
-If the primary exits, a relay takes over the port within about a second, and Firefox reconnects to it. Every surface reaches the same Firefox.
-
-## Setup (one-click, Claude desktop app)
-You need two files: `claude-browser-bridge-<version>.xpi`, the Firefox add-on, and `claude-browser-bridge-<version>.mcpb`, the Claude desktop extension. No Node.js install or config editing is needed, because Claude runs the bridge with its built-in Node.
-
-1. **Firefox:** open the `.xpi` in Firefox and click **Add**. The add-on creates its own connection code on first run.
-2. **Copy the code:** click the **Claude Browser Bridge** icon in Firefox's toolbar, then **Copy connection code**. If the icon is hidden, open the puzzle-piece Extensions menu first.
-3. **Claude:** double-click the `.mcpb`, or drag it onto Claude's Settings > Extensions page. Click **Install**, paste the code into **Connection code from Firefox**, and save.
-4. The add-on's toolbar badge turns green **ON**, and Claude has the Firefox tools.
-
-If you ever click **New code** in the add-on's Options, paste the new code into Claude's extension settings again.
-
-## Setup (manual, for Claude Code or a hand-edited desktop config)
-1. Install Node.js 20 or newer, then run `npm install` in `bridge/`.
-2. Copy the connection code from the Firefox add-on as above.
-3. Add this to `mcpServers` in `claude_desktop_config.json`. Merge it in and keep the existing servers.
-   ```json
-   "firefox": {
-     "command": "node",
-     "args": ["C:/path/to/claude-firefox-bridge/bridge/bridge.js"],
-     "env": { "FF_BRIDGE_TOKEN": "<token>", "FF_BRIDGE_PORT": "8765" }
-   }
+1. **Firefox add-on:** install TabRelay from addons.mozilla.org, or open the signed `.xpi` from the [latest release](https://github.com/thriftshoppin/claude-firefox-bridge/releases) in Firefox. Click **Add**. Firefox asks whether to allow it in private windows. That's off by default, and you can leave it off.
+2. **Copy the connection code:** a welcome page opens and copies the code for you. You can copy it again any time: click the TabRelay icon in Firefox's toolbar, then **Copy connection code**. If the icon is hidden, open the puzzle-piece Extensions menu.
+3. **Claude plugin:** in Claude, go to **Customize > Plugins > Add > Add marketplace** and enter `thriftshoppin/claude-firefox-bridge`, then install **TabRelay**. In Claude Code you can run this instead:
    ```
-   Use forward slashes in the path, because backslashes are easy to mangle in JSON.
-   Config location:
-   - Windows, standard installer: `%APPDATA%\Claude\claude_desktop_config.json`
-   - Windows, Microsoft Store build: `%LOCALAPPDATA%\Claude-Data\<package>\claude_desktop_config.json`, where the package folder is named like `claude_pzs8sxrjxfjjc`
-   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   /plugin install tab-relay --marketplace thriftshoppin/claude-firefox-bridge
+   ```
+4. **Paste the code** when Claude asks for the **Connection code from Firefox**, then save.
+5. The TabRelay icon in Firefox turns green **ON**. Ask Claude something like "open my Firefox and find today's weather".
 
-   For Claude Code, add it with the CLI instead:
-   `claude mcp add firefox --scope user -e FF_BRIDGE_TOKEN=<token> -e FF_BRIDGE_PORT=8765 -- node /path/to/bridge/bridge.js`
-4. Fully quit the Claude desktop app from the tray icon and reopen it. The add-on's badge turns green **ON**.
+**Claude desktop app chats:** install the one-click desktop extension `tabrelay-<version>.mcpb` from the [latest release](https://github.com/thriftshoppin/claude-firefox-bridge/releases). Double-click it, click **Install**, and paste the same connection code.
 
-Use the connection code from the add-on as `<token>`. You can also put your own code into both places: paste it into the add-on's Options and click Save.
+## How it works
 
-Badge: **ON** means connected, **…** means enabled and waiting for Claude, and **OFF** means disabled. The popup checkbox is the kill switch. The popup also shows the last 20 actions, and 300 are kept.
+```
+Claude (plugin or desktop extension)
+   |  starts, over stdio
+   v
+TabRelay bridge  (server/bridge.js, MCP server "firefox")
+   |  WebSocket on 127.0.0.1:8765, connection code required
+   v
+TabRelay add-on in Firefox  ->  acts on the tab you're working in
+```
+
+Claude starts the bridge when it needs it and stops it when it closes. There's nothing to keep running. The add-on reconnects quietly until a bridge is there. If several Claude apps run at once, they share one connection: the first bridge holds it, and the others pass their calls through it.
 
 ## Tools
-tabs_list, tab_open, tab_select, tab_close, navigate (a URL, back or forward), screenshot (a PNG in CSS pixels, so coordinates match click), read_page, get_page_text, find, click, type, key, scroll, form_input, wait.
+
+| Tool | What it does | Changes anything? |
+|---|---|---|
+| `tabs_list` | Lists open tabs | No |
+| `tab_open` | Opens a new tab at a URL | Opens a tab |
+| `tab_select` | Switches to a tab | Switches tabs |
+| `tab_close` | Closes a tab | Yes |
+| `navigate` | Loads a URL, or goes back or forward | Yes |
+| `screenshot` | Captures the visible page; pixels equal CSS pixels | No |
+| `read_page` | Lists the page's visible elements with refs | No |
+| `get_page_text` | Returns the page's visible text | No |
+| `find` | Finds elements by text or label | No |
+| `click` | Clicks an element or a point | Yes |
+| `type` | Types into a field | Yes |
+| `key` | Presses keys such as Enter or ctrl+a | Yes |
+| `scroll` | Scrolls the page or an element | Scrolls |
+| `form_input` | Sets a select, checkbox or radio | Yes |
+| `wait` | Waits up to 10 seconds | No |
+
+The plugin also includes a skill that tells Claude to work in a new tab, to treat page content as untrusted, and to ask before buying, sending, posting or deleting anything.
 
 ## Safety
-- The WebSocket binds to 127.0.0.1 only. The first message must carry the token, or the socket is closed. Relay copies use the same token.
-- Typing into password, credit-card (`autocomplete=cc-*`) and one-time-code fields is refused.
-- about:, moz-extension:, view-source:, data: and addons.mozilla.org pages are refused.
 
-## Driving Firefox from a terminal
-`node bridge/ffcall.mjs tabs_list '{}'` makes one tool call through the running bridge and prints the result. It joins as a relay and reads the token from the Claude config without printing it.
+- **Local only.** The bridge listens on 127.0.0.1, so nothing outside your computer can reach it.
+- **Connection code.** Only a connection that presents your code is accepted. The code is random and 64 characters long, and the add-on can make a new one at any time (Options > New code).
+- **Firefox add-ons only.** The bridge refuses connections from web pages, because only a `moz-extension://` origin may connect as the add-on.
+- **Kill switch.** The checkbox in the add-on's popup disconnects Claude immediately.
+- **Action log.** The popup shows the last 20 of up to 300 logged actions. The log stays on your computer.
+- **Blocked fields.** Typing into password, credit-card (`autocomplete="cc-*"`) and one-time-code fields is refused.
+- **Blocked pages.** Firefox's own pages (`about:`, `moz-extension:`, `view-source:`) and addons.mozilla.org are refused.
 
-## Building and signing (maintainers)
-- `build-mcpb.ps1` copies `bridge/bridge.js` into `mcpb/server/`, installs runtime dependencies, validates `mcpb/manifest.json`, and packs `dist/claude-browser-bridge-<version>.mcpb`.
-  Keep the version in `mcpb/manifest.json` in step with `extension/manifest.json`.
-- `sign.ps1` lints and signs the add-on as an unlisted AMO add-on. It asks for the AMO JWT issuer and secret and keeps them in memory only.
-  It never packages `local-config.json`. Bump `version` in `extension/manifest.json` before each signing.
-- AMO rejects add-on names that contain "Firefox" or "Mozilla".
-- `extension/local-config.json` is an optional token file for unsigned temporary installs. It is listed in `.gitignore`, and you should never ship it.
+## Privacy
 
-## Tests (in `bridge/`)
-- `node stdio-test.mjs`: clean stdout, initialize, and all 15 tools listed.
-- `node selftest.mjs`: a fake add-on checks routing, wrong-token rejection, newest-connection-wins, relay routing, primary takeover, and a foreign process holding the port.
-- `node e2e.mjs <testExtensionDir> <profileDir> <outDir>`: a live run in a throwaway Firefox profile via `web-ext run`. It needs a test copy of the add-on with `local-config.json` set to `{token: "e2e-test-token-not-real", port: 18766, enabled: true}`.
+TabRelay collects nothing and sends nothing to its authors or any third party. Page content Claude reads goes to the Claude app that asked for it, as part of your conversation. Read the full [privacy policy](https://thriftshoppin.github.io/claude-firefox-bridge/privacy), also in [docs/privacy.md](docs/privacy.md).
+
+## Troubleshooting
+
+- **Claude says Firefox isn't connected.** Check that Firefox is open and the TabRelay icon shows **ON**. If it shows **…**, the codes probably don't match: copy the code again from the icon's popup and paste it into the plugin's settings in Claude.
+- **The icon shows OFF.** The kill switch is off. Open the popup and tick **Bridge enabled**.
+- **Another program uses port 8765.** Pick another port, such as 8777, in both the add-on's Options and the plugin's settings.
+- **`node` not found.** Install Node.js 18 or newer from nodejs.org, then restart Claude.
+- **A site ignores clicks or typing.** See the known limits below.
 
 ## Known limits
-- Events are synthetic (`isTrusted: false`). Sites that check for that, or that need real keyboard input, may ignore clicks and keys. Some editors, games and canvas apps behave this way.
-- The content script runs in the top frame only, so refs can't reach cross-origin iframes such as embedded logins, captchas and some payment widgets.
+
+- Clicks and keys are synthetic events. Sites that check for real input, and some editors, games and canvas apps, may ignore them.
+- Content inside embedded frames from other sites, such as some logins, captchas and payment widgets, can't be reached.
 - `key` imitates default browser behavior only for Enter, Tab, ctrl+a, Backspace and the page-scrolling keys.
-- Native `<select>` dropdowns and file pickers can't be opened. Use `form_input` for selects.
+- Native select dropdowns and file pickers can't be opened. Use `form_input` for selects.
+
+## For developers
+
+| Path | What it is |
+|---|---|
+| `server/bridge.js` | The bridge. One readable file with no dependencies |
+| `extension/` | The Firefox add-on (Manifest V2) |
+| `.claude-plugin/`, `skills/` | The Claude plugin and its skill |
+| `mcpb/manifest.json` | Manifest for the one-click desktop extension |
+| `test/` | Tests: `npm install`, then `node stdio-test.mjs` and `node selftest.mjs` |
+| `build-mcpb.ps1`, `sign.ps1`, `fetch-signed.ps1` | Build the `.mcpb`; sign and download the add-on through Mozilla's API |
+| `amo/` | Notes for Mozilla's add-on reviewers |
+
+`test/e2e.mjs` runs a live check in a throwaway Firefox profile with `web-ext run`. `test/ffcall.mjs` makes one tool call through a running bridge from a terminal.
+
+## License
+
+[MIT](LICENSE)

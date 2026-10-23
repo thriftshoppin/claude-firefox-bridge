@@ -1,0 +1,12 @@
+{
+  "name": "tabrelay",
+  "owner": { "name": "thriftshoppin", "url": "https://github.com/thriftshoppin" },
+  "description": "TabRelay: let Claude use your own Firefox. Unofficial community project.",
+  "plugins": [
+    {
+      "name": "tab-relay",
+      "source": "./",
+      "description": "Let Claude use your own Firefox: tabs, pages, screenshots, clicks and typing, with your existing sign-ins. Needs the TabRelay Firefox add-on."
+    }
+  ]
+}

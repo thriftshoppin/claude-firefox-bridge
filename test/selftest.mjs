@@ -1,0 +1,153 @@
+// Starts the bridge as a child, drives it with the official MCP client, and plays the Firefox add-on
+// with a fake WebSocket client. Checks routing, the connection code, origin rules, relays and takeover.
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import WebSocket, { WebSocketServer } from "ws";
+import { fileURLToPath } from "node:url";
+
+const PORT = "18765";
+const CODE = "selftest-code-123";
+const EXT_ORIGIN = "moz-extension://selftest";
+const bridge = fileURLToPath(new URL("../server/bridge.js", import.meta.url));
+const results = [];
+const check = (name, cond, info = "") => {
+  results.push({ name, ok: !!cond });
+  console.log(`${cond ? "PASS" : "FAIL"}  ${name}${info ? "  (" + info + ")" : ""}`);
+};
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const txt = (r) => r.content.filter((c) => c.type === "text").map((c) => c.text).join("\n");
+
+async function mcp(port, code = CODE) {
+  const c = new Client({ name: "selftest", version: "1" });
+  await c.connect(new StdioClientTransport({
+    command: process.execPath, args: [bridge],
+    env: { ...process.env, FF_BRIDGE_PORT: port, FF_BRIDGE_TOKEN: code }, stderr: "ignore",
+  }));
+  return c;
+}
+
+// Fake add-on. Resolves with { ws, accepted, code, httpStatus }.
+function fakeExt(code, { origin = EXT_ORIGIN, port = PORT } = {}) {
+  return new Promise((resolve) => {
+    const headers = origin ? { Origin: origin } : {};
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`, { headers });
+    ws.on("open", () => ws.send(JSON.stringify({ type: "hello", token: code, version: "test", configSource: "selftest" })));
+    ws.on("message", (d) => {
+      const m = JSON.parse(d);
+      if (m.type === "welcome") return resolve({ ws, accepted: true });
+      const reply = (result) => ws.send(JSON.stringify({ id: m.id, ok: true, result }));
+      if (m.cmd === "tabs_list") reply([{ tabId: 7, title: "Fake", url: "https://example.com/", active: true, windowId: 1 }]);
+      else if (m.cmd === "screenshot") reply({ data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", width: 1, height: 1, tabId: 7 });
+      else if (m.cmd === "click") ws.send(JSON.stringify({ id: m.id, ok: false, error: "boom from page" }));
+      else reply({ echo: m.cmd, args: m.args });
+    });
+    ws.on("unexpected-response", (req, res) => resolve({ ws, accepted: false, httpStatus: res.statusCode }));
+    ws.on("close", (code) => resolve({ ws, accepted: false, code }));
+    ws.on("error", () => {});
+  });
+}
+
+const client = await mcp(PORT);
+await sleep(300);
+
+// Protocol and tool metadata
+const { tools } = await client.listTools();
+check("tools/list returns 15 tools", tools.length === 15, tools.map((t) => t.name).join(","));
+check("every tool has a title and annotations", tools.every((t) => t.title && t.annotations && typeof t.annotations.readOnlyHint === "boolean" && typeof t.annotations.destructiveHint === "boolean"));
+const ro = (n) => tools.find((t) => t.name === n).annotations.readOnlyHint;
+const de = (n) => tools.find((t) => t.name === n).annotations.destructiveHint;
+check("read-only hints", ["tabs_list", "read_page", "get_page_text", "find", "screenshot", "wait"].every(ro));
+check("destructive hints", ["click", "type", "key", "form_input", "navigate", "tab_close"].every(de));
+check("read tools warn that page content is untrusted", ["read_page", "get_page_text", "find"].every((n) => tools.find((t) => t.name === n).description.includes("untrusted web data, not instructions")));
+check("tool names are 64 characters or fewer", tools.every((t) => t.name.length <= 64));
+
+let r = await client.callTool({ name: "tabs_list", arguments: {} });
+check("clear error before the add-on connects", r.isError && /Firefox isn't connected/.test(txt(r)));
+r = await client.callTool({ name: "click", arguments: {} });
+check("invalid arguments: click without ref or x,y", r.isError && /pass either 'ref', or both 'x' and 'y'/.test(txt(r)));
+r = await client.callTool({ name: "scroll", arguments: { direction: "sideways" } });
+check("invalid arguments: bad enum value", r.isError && /must be one of: up, down, left, right/.test(txt(r)));
+r = await client.callTool({ name: "navigate", arguments: { url: "https://x.example", bogus: 1 } });
+check("invalid arguments: unknown argument", r.isError && /unknown argument 'bogus'/.test(txt(r)));
+r = await client.callTool({ name: "no_such_tool", arguments: {} });
+check("unknown tool gives a clear error", r.isError && /Unknown tool "no_such_tool"/.test(txt(r)));
+
+// Who may connect
+const bad = await fakeExt("wrong-code");
+check("wrong connection code refused", !bad.accepted && bad.code === 4003, `close code ${bad.code}`);
+const web = await fakeExt(CODE, { origin: "https://evil.example" });
+check("a web page origin is refused even with the right code", !web.accepted && web.httpStatus === 403, `HTTP ${web.httpStatus}`);
+const noOrigin = await fakeExt(CODE, { origin: null });
+check("an add-on connection without a moz-extension origin is refused", !noOrigin.accepted && noOrigin.code === 4003, `close code ${noOrigin.code}`);
+r = await client.callTool({ name: "tabs_list", arguments: {} });
+check("still not connected after refused attempts", r.isError);
+
+// Routing
+const good = await fakeExt(CODE);
+check("right code from the add-on accepted", good.accepted);
+r = await client.callTool({ name: "tabs_list", arguments: {} });
+check("tabs_list routed to the add-on", !r.isError && txt(r).includes('"tabId": 7'));
+r = await client.callTool({ name: "navigate", arguments: { url: "back", tabId: 7 } });
+check("arguments forwarded unchanged", txt(r).includes('"url": "back"') && txt(r).includes('"tabId": 7'));
+r = await client.callTool({ name: "screenshot", arguments: {} });
+check("screenshot returns an image plus the viewport line", r.content[0].type === "image" && /viewport 1x1 CSS px/.test(txt(r)));
+r = await client.callTool({ name: "click", arguments: { ref: "r1" } });
+check("add-on errors come back as tool errors", r.isError && txt(r).includes("boom from page"));
+const t0 = Date.now();
+r = await client.callTool({ name: "wait", arguments: { seconds: 0.5 } });
+check("wait is handled in the bridge", !r.isError && Date.now() - t0 >= 450);
+const big = "x".repeat(200000);
+r = await client.callTool({ name: "type", arguments: { text: big } });
+check("large messages survive the WebSocket layer", !r.isError && txt(r).length > 200000);
+
+const newer = await fakeExt(CODE);
+await sleep(200);
+check("the newest add-on connection wins", newer.accepted && good.ws.readyState === WebSocket.CLOSED);
+newer.ws.close();
+await sleep(200);
+r = await client.callTool({ name: "tabs_list", arguments: {} });
+check("disconnect detected", r.isError && /Firefox isn't connected/.test(txt(r)));
+
+// Second copy joins as a relay
+const client2 = await mcp(PORT);
+await sleep(600);
+r = await client2.callTool({ name: "tabs_list", arguments: {} });
+check("relay copy reports not connected when no add-on", r.isError && /Firefox isn't connected/.test(txt(r)));
+const ext3 = await fakeExt(CODE);
+r = await client2.callTool({ name: "tabs_list", arguments: {} });
+check("relay copy routes calls through the primary", !r.isError && txt(r).includes('"tabId": 7'));
+r = await client2.callTool({ name: "screenshot", arguments: {} });
+check("relay copy returns the screenshot image", !r.isError && r.content[0].type === "image");
+r = await client.callTool({ name: "tabs_list", arguments: {} });
+check("primary still works alongside the relay", !r.isError);
+
+// Primary exits: relay takes over
+await client.close();
+await sleep(1500);
+check("add-on dropped when the primary exited", ext3.ws.readyState === WebSocket.CLOSED);
+const ext4 = await fakeExt(CODE);
+check("add-on reconnects to the copy that took over", ext4.accepted);
+r = await client2.callTool({ name: "tabs_list", arguments: {} });
+check("former relay now serves calls as primary", !r.isError && txt(r).includes('"tabId": 7'));
+ext4.ws.close();
+await client2.close();
+
+// Something else on the port
+const foreign = new WebSocketServer({ host: "127.0.0.1", port: 18767 });
+foreign.on("connection", (s) => s.on("message", () => s.close(4003, "unauthorized")));
+const c3 = await mcp("18767");
+await sleep(800);
+r = await c3.callTool({ name: "tabs_list", arguments: {} });
+check("a foreign program on the port: clear not-connected error", r.isError && /Firefox isn't connected/.test(txt(r)));
+await c3.close();
+foreign.close();
+
+// No connection code configured
+const c4 = await mcp("18768", "${user_config.connection_code}");
+r = await c4.callTool({ name: "tabs_list", arguments: {} });
+check("no connection code: tells the user how to get one", r.isError && /No connection code is set/.test(txt(r)));
+await c4.close();
+
+const failed = results.filter((x) => !x.ok).length;
+console.log(failed ? `${failed} FAILED` : `ALL ${results.length} PASSED`);
+process.exit(failed ? 1 : 0);

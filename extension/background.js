@@ -344,6 +344,11 @@ browser.runtime.onMessage.addListener((msg) => {
   return undefined;
 });
 
+// ---------------- first install: open the welcome page that copies the connection code ----------------
+browser.runtime.onInstalled.addListener(({ reason }) => {
+  if (reason === "install") browser.tabs.create({ url: browser.runtime.getURL("welcome.html") });
+});
+
 // ---------------- start ----------------
 (async () => {
   await loadSettings();

@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>TabRelay is installed</title>
+<style>
+  :root { color-scheme: light dark; --fg: #1f1f1f; --muted: #5c5c5c; --bg: #fafafa; --card: #ffffff; --line: #dedede; --accent: #c4552f; --ok: #1a7d32; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #ececec; --muted: #a8a8a8; --bg: #1b1b1d; --card: #252528; --line: #3a3a3e; --ok: #5fc27a; } }
+  body { font: 15px/1.5 system-ui, sans-serif; color: var(--fg); background: var(--bg); margin: 0; padding: 40px 16px; }
+  main { max-width: 560px; margin: 0 auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 28px; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  p { margin: 8px 0; color: var(--muted); }
+  ol { padding-left: 22px; margin: 16px 0; }
+  li { margin: 10px 0; }
+  .code { display: flex; gap: 8px; align-items: center; margin: 18px 0 6px; }
+  .code code { flex: 1; font: 13px ui-monospace, monospace; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  button, .btn { font: 600 14px system-ui, sans-serif; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--fg); cursor: pointer; text-decoration: none; display: inline-block; }
+  .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #status { color: var(--ok); min-height: 1.5em; }
+  .small { font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>TabRelay is installed</h1>
+  <p>One step left: give Claude the connection code below, so only your Claude can control this browser.</p>
+
+  <div class="code">
+    <code id="code">loading…</code>
+    <button id="copy">Copy</button>
+  </div>
+  <div id="status"></div>
+
+  <ol>
+    <li>Go back to Claude. The button below opens the Claude app.</li>
+    <li>Paste the code into the <b>Connection code</b> field of the TabRelay plugin settings, then save.</li>
+    <li>The TabRelay icon in Firefox's toolbar turns green <b>ON</b>. You're done.</li>
+  </ol>
+
+  <a class="btn primary" id="back" href="claude://">Back to Claude</a>
+
+  <p class="small">Using Claude Code in a terminal? Switch back to it and paste the code when the plugin asks for it.</p>
+  <p class="small">You can copy the code again at any time: click the TabRelay icon in the toolbar, then <b>Copy connection code</b>.
+     If you don't see the icon, open the puzzle-piece Extensions menu.</p>
+  <p class="small">TabRelay is an independent project, not affiliated with Anthropic or Mozilla.</p>
+</main>
+<script src="welcome.js"></script>
+</body>
+</html>

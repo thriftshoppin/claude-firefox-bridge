@@ -1,0 +1,42 @@
+{
+  "name": "tab-relay",
+  "displayName": "TabRelay (Firefox control)",
+  "version": "1.0.3",
+  "description": "Let Claude use your own Firefox: list and switch tabs, open pages, read them, take screenshots, click, type and scroll, with your existing sign-ins. Needs the free TabRelay Firefox add-on. Unofficial community project.",
+  "author": { "name": "thriftshoppin", "url": "https://github.com/thriftshoppin" },
+  "homepage": "https://github.com/thriftshoppin/claude-firefox-bridge",
+  "repository": "https://github.com/thriftshoppin/claude-firefox-bridge",
+  "license": "MIT",
+  "keywords": ["firefox", "browser", "tabs", "web", "automation"],
+  "icon": "./assets/icon.png",
+  "documentationUrl": "https://github.com/thriftshoppin/claude-firefox-bridge#readme",
+  "supportUrl": "https://github.com/thriftshoppin/claude-firefox-bridge/issues",
+  "privacyPolicyUrl": "https://thriftshoppin.github.io/claude-firefox-bridge/privacy",
+  "userConfig": {
+    "connection_code": {
+      "type": "string",
+      "title": "Connection code from Firefox",
+      "description": "Install the TabRelay add-on in Firefox first. Then click the TabRelay icon in Firefox's toolbar (look in the puzzle-piece Extensions menu if it's hidden), click 'Copy connection code', and paste it here.",
+      "sensitive": true,
+      "required": true
+    },
+    "port": {
+      "type": "number",
+      "title": "Port",
+      "description": "Leave at 8765 unless another program uses it. It must match the Port in the TabRelay add-on's Options.",
+      "default": 8765,
+      "min": 1024,
+      "max": 65535
+    }
+  },
+  "mcpServers": {
+    "firefox": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server/bridge.js"],
+      "env": {
+        "FF_BRIDGE_TOKEN": "${user_config.connection_code}",
+        "FF_BRIDGE_PORT": "${user_config.port}"
+      }
+    }
+  }
+}
